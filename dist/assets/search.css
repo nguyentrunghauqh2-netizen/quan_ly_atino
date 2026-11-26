@@ -1,0 +1,213 @@
+.atino-suggest-popover {
+  position: fixed;
+  z-index: 2147483000;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  overflow: hidden;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #dfe5f1;
+  border-radius: 12px;
+  background: #fff;
+  color: #192339;
+  box-shadow: 0 14px 40px #17233e1c, 0 3px 10px #17233e0b;
+  font-family: "Be Vietnam Pro", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.45;
+  text-align: left;
+  letter-spacing: normal;
+  isolation: isolate;
+}
+
+.atino-suggest-popover *,
+.atino-suggest-popover *::before,
+.atino-suggest-popover *::after {
+  box-sizing: border-box;
+}
+
+.atino-suggest-header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 44px;
+  padding: 11px 14px;
+  border-bottom: 1px solid #edf0f7;
+  background: #fafbfe;
+}
+
+.atino-suggest-heading {
+  color: #54627b;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.atino-suggest-count {
+  flex-shrink: 0;
+  color: #6a7890;
+  font-size: 14px;
+}
+
+.atino-suggest-list {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 5px;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #cdd5e4 transparent;
+}
+
+.atino-suggest-list:empty {
+  display: none;
+}
+
+.atino-suggest-option {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 54px;
+  padding: 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: #fff;
+  color: #192339;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.atino-suggest-option:hover,
+.atino-suggest-option-active {
+  border-color: #e0e5ff;
+  background: #f0f3ff;
+}
+
+.atino-suggest-icon {
+  position: relative;
+  display: block;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: #f3f5fa;
+  color: #8996ad;
+}
+
+.atino-suggest-icon::before {
+  position: absolute;
+  top: 7px;
+  left: 7px;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  content: "";
+}
+
+.atino-suggest-icon::after {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  width: 6px;
+  height: 1.5px;
+  border-radius: 2px;
+  background: currentColor;
+  transform: rotate(45deg);
+  transform-origin: left center;
+  content: "";
+}
+
+.atino-suggest-option-active .atino-suggest-icon,
+.atino-suggest-option:hover .atino-suggest-icon {
+  background: #e5eaff;
+  color: #4d5ee2;
+}
+
+.atino-suggest-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.atino-suggest-label {
+  display: block;
+  color: #25324a;
+  font-size: 16px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.atino-suggest-detail {
+  display: block;
+  color: #697891;
+  font-size: 14px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.atino-suggest-enter {
+  flex: none;
+  padding: 0 3px;
+  color: #4d5ee2;
+  font-size: 20px;
+  opacity: 0;
+}
+
+.atino-suggest-option-active .atino-suggest-enter,
+.atino-suggest-option:hover .atino-suggest-enter {
+  opacity: 1;
+}
+
+.atino-suggest-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 23px 18px;
+  overflow: auto;
+  color: #75829a;
+  font-size: 14px;
+}
+
+.atino-suggest-empty strong {
+  color: #33415a;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.atino-suggest-footer {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px 12px;
+  padding: 10px 14px;
+  border-top: 1px solid #edf0f7;
+  background: #fafbfe;
+  color: #75829a;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.atino-suggest-keys {
+  color: #8995aa;
+  white-space: nowrap;
+}
+
+@media (max-width: 540px) {
+  .atino-suggest-header { gap: 8px; }
+  .atino-suggest-option { min-height: 58px; }
+  .atino-suggest-keys { display: none; }
+}
+
+@media (forced-colors: active) {
+  .atino-suggest-popover { border-color: CanvasText; }
+  .atino-suggest-option-active { outline: 2px solid Highlight; outline-offset: -2px; }
+}
