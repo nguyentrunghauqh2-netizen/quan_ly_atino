@@ -1,0 +1,23 @@
+# Python & Flask
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+ENV/
+.env
+
+# Node / Build / Logs
+node_modules/
+*.log
+
+# Git bundles & archives
+*.bundle
+*.zip
+
+# OS & Editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
