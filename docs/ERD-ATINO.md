@@ -10,7 +10,8 @@ Tài liệu mô tả chi tiết mô hình thực thể kết hợp (**ERD**) và
 
 ## 1. Sơ đồ ERD trực quan
 
-Xem ảnh sơ đồ đầy đủ tại [erd-atino.png](./erd-atino.png) (hoặc bản Word kèm giải thích tại [ERD-ATINO.docx](./ERD-ATINO.docx)).
+- **Sơ đồ tổng quan dễ đọc (cho người mới & trình bày vấn đáp):** [erd-tong-quan.png](./erd-tong-quan.png)
+- **Sơ đồ chi tiết 15 bảng MySQL:** [erd-atino.png](./erd-atino.png) (và bản Word kèm giải thích tại [ERD-ATINO.docx](./ERD-ATINO.docx)).
 
 ```mermaid
 erDiagram

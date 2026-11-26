@@ -24,8 +24,9 @@ quan_ly_atino/
 ├── docs/
 │   ├── SPEC-CHUC-NANG.md             # Đặc tả chi tiết 10 nhóm chức năng đã chốt
 │   ├── ERD-ATINO.md                  # Tài liệu ERD & thiết kế 15 bảng MySQL (cho Agent)
-│   ├── ERD-ATINO.docx                # Tài liệu ERD bản Word kèm sơ đồ (để đọc & nộp báo cáo)
-│   ├── erd-atino.png                 # Ảnh sơ đồ ERD 15 bảng
+│   ├── ERD-ATINO.docx                # Tài liệu ERD bản Word kèm 2 sơ đồ (tổng quan & chi tiết)
+│   ├── erd-tong-quan.png             # Ảnh sơ đồ tổng quan dễ đọc (cho người mới & vấn đáp)
+│   ├── erd-atino.png                 # Ảnh sơ đồ ERD chi tiết 15 bảng
 │   └── HUONG-DAN-VAN-DAP.md          # Giải thích kiến trúc & thuật toán dễ học để vấn đáp
 ├── dist/                             # Mã nguồn Frontend tĩnh (HTML, CSS, JS thuần)
 └── backend/                          # (Dành cho Agent triển khai Backend Python Flask + MySQL)
