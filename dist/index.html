@@ -304,17 +304,34 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
         #payment-dialog,#payment-dialog button,.payment-choice { text-transform:none; }
         #new-receipt-product[hidden] { display:none; }
         .payment-choice { min-height:4rem; font-size:1rem; }
-        .label-sheet { display:flex; flex-wrap:wrap; gap:.6rem; }
-        .product-label { display:grid; justify-items:center; align-content:start; text-align:center; overflow-wrap:anywhere; width:42mm; padding:2mm; border:1px solid #cbd5e1; font-size:10pt; break-inside:avoid; }
-        .product-label canvas { width:25mm; height:25mm; image-rendering:pixelated; }
+        #labels-dialog { text-transform:none; }
+        .label-sheet { display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-start; gap:6mm; padding:6mm 2mm; background:#eef1f4; }
+        .product-label { box-sizing:border-box; width:64mm; min-height:98mm; padding:5mm 4mm 4mm; background:#fff; color:#121212; border:1px solid #bcc3c9; border-radius:2mm; font:9pt/1.35 Arial,sans-serif; overflow-wrap:anywhere; break-inside:avoid; text-transform:none; display:flex; flex-direction:column; }
+        .product-label header,.product-label .tag-sizes,.product-label .tag-material { text-align:center; }
+        .product-label h3 { margin:0 0 2mm; font:bold 13pt/1.15 Arial,sans-serif; }
+        .product-label .tag-barcode { display:block; width:100%; height:10mm; fill:#000; }
+        .product-label .tag-barcode-text { font:8pt/1.4 monospace; }
+        .product-label .tag-price { display:block; margin:1mm 0 2mm; font-size:15pt; line-height:1.1; }
+        .product-label .tag-variant { display:flex; justify-content:space-between; flex-wrap:wrap; gap:1mm 2mm; font-weight:600; }
+        .product-label .tag-material,.product-label .tag-sizes { margin:1.5mm 0 0; font-size:8pt; }
+        .product-label .tag-care { margin:3mm 0; padding-top:2.5mm; border-top:1px solid #b2b2b2; }
+        .product-label h4 { margin:0 0 1mm; font:bold 8.5pt/1.4 Arial,sans-serif; text-align:center; text-transform:uppercase; }
+        .product-label ul { padding:0 0 0 3mm; margin:0; list-style:disc outside; font-size:8pt; }
+        .product-label li+li { margin-top:.7mm; }
+        .product-label footer { display:flex; justify-content:space-between; align-items:end; gap:2mm; margin-top:auto; padding-top:2mm; border-top:1px solid #b2b2b2; }
+        .product-label footer p { margin:.6mm 0; font-size:7.5pt; }
+        .product-label .tag-brand { font-size:10pt; letter-spacing:1pt; }
+        .product-label canvas { display:block; width:18mm; height:18mm; flex:none; image-rendering:pixelated; }
         @media print {
             body.printing-labels > :not(#labels-dialog) { display:none !important; }
             body.printing-labels { background:white; margin:0; padding:0; }
             body.printing-labels #labels-dialog { position:static; display:block; width:auto; max-width:none; max-height:none; overflow:visible; margin:0; padding:0; border:0; box-shadow:none; }
-            body.printing-labels #labels-dialog::backdrop { display:none; }
-            body.printing-labels .label-controls { display:none; }
+            body.printing-labels #labels-dialog::backdrop,body.printing-labels .label-controls { display:none; }
+            body.printing-labels .label-sheet { display:block; padding:0; background:white; }
+            body.printing-labels .product-label { display:inline-flex; vertical-align:top; margin:0 1mm 2mm 0; border:0.2mm solid #aaa; }
         }
         #invoice-paper { display:none; }
+        #invoice-paper .invoice-item-code { display:block; }
         @media print {
             body.printing-invoice > :not(#invoice-paper) { display:none !important; }
             body.printing-invoice { margin:0; padding:0; background:white; }
@@ -335,8 +352,9 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
         th,td { padding:.65rem .75rem; border-bottom:1px solid #e9eef6; }
         @media (max-width:600px) { .movement:not(.sale-line) { grid-template-columns:1fr 1fr; } #search { min-width:0; } }
     </style>
-    <link rel="stylesheet" href="assets/manager.css?v=dd829cf7835e">
-    <link rel="stylesheet" href="assets/employee.css">
+    <link rel="stylesheet" href="assets/account.css?v=cadbdeb4eea4">
+    <link rel="stylesheet" href="assets/manager.css?v=56b99992d177">
+    <link rel="stylesheet" href="assets/employee.css?v=b67e02d641e5">
     <link rel="stylesheet" href="assets/search.css">
     <link rel="stylesheet" href="assets/login.css">
 </head>
@@ -365,7 +383,7 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
                 </div>
             </details>
             <button type="button" class="nav-btn" data-page="products"><i class="fa-solid fa-shirt" aria-hidden="true"></i>Sản phẩm</button>
-            <button type="button" class="nav-btn" data-page="warehouse"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i>Kho hàng</button>
+            <button type="button" class="nav-btn" data-page="warehouse"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i>Hàng hóa</button>
             <button type="button" class="nav-btn" data-page="pos"><i class="fa-solid fa-cash-register" aria-hidden="true"></i>Bán hàng</button>
             <button type="button" class="nav-btn" data-employee-only data-page="receipt" hidden><i class="fa-solid fa-box-open" aria-hidden="true"></i>Nhập kho</button>
             <button type="button" class="nav-btn" data-employee-only data-page="transfer" hidden><i class="fa-solid fa-dolly" aria-hidden="true"></i>Xuất kho</button>
@@ -388,6 +406,7 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
                     <label class="al-field">Tên đăng nhập<input name="username" class="field" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="50" placeholder="Nhập tên đăng nhập" required></label>
                     <label class="al-field" for="login-password">Mật khẩu</label><div class="al-password"><input id="login-password" name="password" class="field" type="password" autocomplete="current-password" maxlength="256" placeholder="Nhập mật khẩu" required><button type="button" id="login-password-toggle" aria-controls="login-password" aria-pressed="false" aria-label="Hiện mật khẩu">Hiện</button></div>
                     <button id="login-submit" type="submit" class="primary w-full" disabled>Đăng nhập</button>
+                    <button id="forgot-password" type="button" class="atino-account-link">Quên mật khẩu</button>
                 </form>
                 <p id="login-status" role="status">Đang mở dữ liệu…</p>
                 <button id="retry-server" type="button" class="secondary" hidden>Thử lại</button>
@@ -416,9 +435,9 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
             <p id="overview-status" role="status"></p>
             <section id="report-output" class="overview-report" aria-labelledby="overview-report-title" hidden>
                 <h2 id="overview-report-title" class="heading">Báo cáo – Thống kê</h2>
-                <h3 id="variant-report-title">Số lượng bán theo mẫu và size</h3>
+                <h3 id="variant-report-title">Số lượng bán theo sản phẩm và kích cỡ</h3>
                 <div class="overflow-x-auto"><table class="report-table" aria-labelledby="variant-report-title">
-                    <thead><tr><th scope="col">Mẫu sản phẩm</th><th scope="col">Size</th><th scope="col">Đã bán</th></tr></thead><tbody id="report-variants"></tbody>
+                    <thead><tr><th scope="col">Sản phẩm</th><th scope="col">Size</th><th scope="col">Đã bán</th></tr></thead><tbody id="report-variants"></tbody>
                 </table></div>
                 <h3 id="staff-report-title">Kết quả theo nhân viên</h3>
                 <div class="overflow-x-auto"><table class="report-table" aria-labelledby="staff-report-title">
@@ -435,14 +454,14 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
             <section class="card p-4 md:p-5"><div class="section-head mb-4">
                 <h1 class="text-xl font-bold text-blue-900">Sản phẩm</h1>
                 <div class="flex flex-wrap items-center gap-3"><button type="button" id="reset-filters" class="text-sm text-blue-700 font-medium">Xem tất cả</button>
-                    <button type="button" id="new-catalog-product" data-manager-only class="primary" hidden>Thêm mẫu</button></div></div>
+                    <button type="button" id="new-catalog-product" data-manager-only class="primary" hidden>Thêm sản phẩm</button></div></div>
                 <div id="product-grid" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4"></div></section>
         </section>
-        <section id="warehouse" class="page-content hidden"><h1 class="heading">Kho hàng</h1>
+        <section id="warehouse" class="page-content hidden"><h1 class="heading">Hàng hóa</h1>
             <div class="module-tiles">
                 <button type="button" data-page="receipt" class="module-tile"><i aria-hidden="true" class="fa-solid fa-box-open"></i><span><strong>Nhập hàng</strong><small>Lập phiếu nhận hàng từ nhà cung cấp</small></span></button>
-                <button type="button" data-page="transfer" class="module-tile"><i aria-hidden="true" class="fa-solid fa-dolly"></i><span><strong>Xuất hàng</strong><small>Xuất hàng về kho tổng hoặc nơi nhận theo phiếu</small></span></button>
-                <button type="button" data-page="stock" class="module-tile"><i aria-hidden="true" class="fa-solid fa-boxes-stacked"></i><span><strong>Quản lý số lượng hàng</strong><small>Xem riêng từng size tại kho và quầy</small></span></button>
+                <button type="button" data-page="transfer" class="module-tile"><i aria-hidden="true" class="fa-solid fa-dolly"></i><span><strong>Xuất hàng</strong><small>Xuất hàng đến nơi nhận theo phiếu</small></span></button>
+                <button type="button" data-page="stock" class="module-tile"><i aria-hidden="true" class="fa-solid fa-boxes-stacked"></i><span><strong>Quản lý số lượng hàng</strong><small>Xem số lượng trong cửa hàng theo từng kích cỡ</small></span></button>
             </div>
         </section>
         <section id="pos" class="page-content hidden"><h1 class="heading">Bán hàng</h1>
@@ -466,11 +485,11 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
             </form>
         </dialog>
         <dialog id="product-dialog" aria-labelledby="new-product-title" class="card w-[min(92vw,40rem)] max-h-[88vh] overflow-auto p-5 backdrop:bg-slate-900/50">
-            <h2 id="new-product-title" class="heading">Tạo mẫu mới trong phiếu nhập</h2>
+            <h2 id="new-product-title" class="heading">Tạo sản phẩm mới trong phiếu nhập</h2>
             <form id="product-form" class="space-y-4">
                 <div class="grid sm:grid-cols-2 gap-4">
                     <label>Mã sản phẩm<input class="field" name="code" readonly aria-describedby="code-hint"></label>
-                    <label>Tên mẫu<input class="field" name="name" required maxlength="100" placeholder="VD: Áo polo trơn"></label>
+                    <label>Tên sản phẩm<input class="field" name="name" required maxlength="100" placeholder="VD: Áo polo trơn"></label>
                     <label>Danh mục<select class="field" name="category" required></select></label>
                     <label>Giá bán (đ)<input class="field" name="price" type="number" min="1" max="1000000000" step="1" required></label>
                 </div>
@@ -479,7 +498,7 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
                 <p id="code-hint" class="text-sm text-slate-600"></p>
                 <p id="product-error" role="status" class="text-sm text-blue-800 empty:hidden"></p>
                 <div class="flex flex-wrap gap-2">
-                    <button type="submit" class="primary">Thêm mẫu vào phiếu</button>
+                    <button type="submit" class="primary">Thêm sản phẩm vào phiếu</button>
                     <button id="cancel-product" type="button" class="secondary">Quay lại phiếu nhập</button>
                 </div>
             </form>
@@ -491,7 +510,7 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
                 <div id="transaction-lines" class="space-y-3"></div>
                 <div class="flex flex-wrap gap-2">
                     <button type="button" id="add-line" class="secondary">Thêm dòng sản phẩm</button>
-                    <button type="button" id="new-receipt-product" class="secondary" hidden>Tạo mẫu mới</button>
+                    <button type="button" id="new-receipt-product" class="secondary" hidden>Tạo sản phẩm mới</button>
                 </div>
                 <p id="sale-total" aria-live="polite" class="font-semibold text-blue-900"></p>
                 <div id="payment-choices" class="grid sm:grid-cols-2 gap-3" hidden>
@@ -503,11 +522,11 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
         </section>
         <section id="stock" class="page-content hidden card p-5">
             <h1 class="heading">Quản lý số lượng hàng</h1>
-            <p class="stock-legend"><span class="low-count">0–1</span> Size sắp hết ngoài quầy</p>
+            <p class="stock-legend"><span class="low-count">0–1</span> Kích cỡ sắp hết hàng</p>
             <div id="stock-cards" class="stock-cards"></div>
             <div class="stock-desktop overflow-x-auto">
                 <table class="w-full text-sm text-left">
-                    <thead class="bg-blue-50"><tr><th scope="col">Mã</th><th scope="col">Tên sản phẩm</th><th scope="col">Size</th><th scope="col">Mã quét</th><th scope="col">Trong kho</th><th scope="col">Ngoài quầy</th></tr></thead>
+                    <thead class="bg-blue-50"><tr><th scope="col">Mã</th><th scope="col">Tên sản phẩm</th><th scope="col">Size</th><th scope="col">Mã quét</th><th scope="col">Số lượng trong cửa hàng</th></tr></thead>
                     <tbody id="stock-rows"></tbody>
                 </table>
             </div>
@@ -586,7 +605,7 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
     </dialog>
     <dialog id="labels-dialog" aria-labelledby="labels-title" class="card w-[min(92vw,38rem)] max-h-[88vh] overflow-auto p-5 backdrop:bg-slate-900/50">
         <div class="label-controls mb-4">
-            <h2 id="labels-title" class="heading">Tem QR sản phẩm</h2>
+            <h2 id="labels-title" class="heading">Tem sản phẩm</h2>
             <p id="label-error" role="alert" class="text-sm text-red-700 mb-2"></p>
             <div class="flex flex-wrap gap-2">
                 <button type="button" id="print-labels" class="primary">In tem QR</button>
@@ -597,7 +616,11 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
     </dialog>
     <section id="invoice-paper" aria-hidden="true"></section>
     <script src="assets/catalog.js"></script>
-    <script src="assets/demo-seed.js"></script>
+    <script src="assets/product-labels.js?v=dd9885ef42a0"></script>
+    <script src="assets/images.js?v=712c626777ee"></script>
+    <script src="assets/account-store.js?v=8409a2bd89e8"></script>
+    <script src="assets/erp.js?v=c65dc5cf04d2"></script>
+    <script src="assets/demo-seed.js?v=7cda703c4d10"></script>
     <script src="assets/search.js"></script>
     <script>
 // QRCode for JavaScript by Kazuhiko Arase. See qr-code-license.txt.
@@ -1886,9 +1909,9 @@ window.AtinoDemo = (() => {
     const roles = ['manager','employee'];
     const demoCredentials = {
         "NV001": {
-            "username": "quản lý",
-            "salt": "79dd04a4b6d090acf47030351de44b9d",
-            "hash": "c49829f70781b22d868aae7e70f8b50a3fac25ec5fc9291ff652632e949bd553"
+            "username": "admin",
+            "salt": "a98f0ffe97d4eba5e1861e9a82834cb2",
+            "hash": "60460c7e41e5a14b5d5c8cc04e93f412975f8d8dfb886fb67d1415382928acae"
         },
         "NV002": {
             "username": "nhân viên",
@@ -1909,26 +1932,31 @@ window.AtinoDemo = (() => {
     }
 
     function migrateDemoLogins(staff) {
-        const previousNames = {NV001:'quanly', NV002:'hoangnam'};
+        const previousNames = {NV001:['quanly','quản lý','haudz123'], NV002:['hoangnam']};
         let changed = false;
         for (const person of staff) {
-            if (!Object.hasOwn(previousNames,person.code) || person.username !== previousNames[person.code]) continue;
-            Object.assign(person, demoCredentials[person.code]);
+            if (!Object.hasOwn(previousNames,person.code) || !previousNames[person.code].includes(person.username)) continue;
+            if (person.code === 'NV001' && person.role !== 'manager') continue;
+            const credentials = demoCredentials[person.code];
+            if (staff.some(account => account !== person && account.username === credentials.username)) continue;
+            Object.assign(person, credentials);
             person.revision = (person.revision || 0) + 1;
+            if (person.code === 'NV001') delete person.recoveryHash;
             changed = true;
         }
         return changed;
     }
 
-    function publicAccount({code,name,username,role,active}) {
-        return {code,name,username,role,active};
+    function publicAccount({code,name,username,role,active,avatar}) {
+        return {code,name,username,role,active,avatar};
     }
 
     function initialShop() {
+        const {staffNames} = window.AtinoDemoSeed;
         const staff = [
-            {code:'NV001',name:'Quản lý mẫu',...demoCredentials.NV001,role:'manager'},
-            {code:'NV002',name:'Nhân viên mẫu 1',...demoCredentials.NV002,role:'employee'},
-            {code:'NV003',name:'Nhân viên mẫu 2',username:'thuha',role:'employee'}
+            {code:'NV001',name:staffNames.NV001,...demoCredentials.NV001,role:'manager'},
+            {code:'NV002',name:staffNames.NV002,...demoCredentials.NV002,role:'employee'},
+            {code:'NV003',name:staffNames.NV003,username:'thuha',role:'employee'}
         ].map(person => ({...person,active:true,revision:1}));
         let saved;
         try { saved = JSON.parse(localStorage.getItem('atino-store-pages-v1')); } catch {}
@@ -1947,7 +1975,7 @@ window.AtinoDemo = (() => {
         ];
         for (const [when,code,size,who,note] of sales) {
             stock = recordMovement(stock, 'sale', [{code,size,qty:1}], note, when);
-            Object.assign(stock.movements.at(-1),{employeeId:staff[who].code, employeeName:staff[who].name});
+            Object.assign(stock.movements.at(-1),{employeeId:staff[who].code, employeeName:staff[who].name},window.AtinoERP.saleStaff(staff,staff[who].code,staff[who]));
         }
         return {...stock,staff,managerNameUpdated:true};
     }
@@ -2019,22 +2047,19 @@ window.AtinoDemo = (() => {
     function view(shop, person) {
         const balances = [];
         for (const [code,variants] of inventory(shop)) {
-            for (const [size,amounts] of variants) {
-                const total=amounts.warehouse+amounts.counter;
-                balances.push(person.role==='manager'?{code,size,...amounts,total}:{code,size,warehouse:total,counter:0,total,held:amounts.held||0});
-            }
+            for (const [size,{total}] of variants) balances.push({code,size,total});
         }
         if(person.role==='manager'){
-            const movements=shop.movements.map(({requestId,signature,...doc})=>doc);
+            const movements=shop.movements.map(({requestId,signature,currentCodeSignature,...doc})=>doc);
             return {user:publicAccount(person),products:shop.products,balances,movements};
         }
-        const products=shop.products.map(p=>({code:p.code,name:p.name,category:p.category,price:p.price,image:p.image||'',description:p.description||'',active:p.active!==false,sizes:productSizes(p),unit:window.AtinoCatalog?.unitFor(p)||'sản phẩm'}));
+        const products=shop.products.map(p=>({code:p.code,name:p.name,category:p.category,price:p.price,image:p.image||'',description:p.description||'',active:p.active!==false,sizes:productSizes(p),labelInfo:p.labelInfo,unit:window.AtinoCatalog?.unitFor(p)||'sản phẩm'}));
         const movements=shop.movements.filter(doc=>doc.employeeId===person.code&&['receipt','dispatch','sale'].includes(doc.type)).map(doc=>{
             const base={id:doc.id,type:doc.type,when:doc.when,note:doc.note||'',employeeId:doc.employeeId,employeeName:doc.employeeName,supplierId:doc.supplierId||'',supplierName:doc.supplierName||'',destination:doc.destination||'',reason:doc.reason||''};
             if(doc.type==='receipt')return {...base,items:doc.items.map(item=>({code:item.code,name:item.name,size:item.size,qty:item.qty,sellingPrice:item.sellingPrice??products.find(p=>p.code===item.code)?.price??null}))};
             if(doc.type==='dispatch')return {...base,items:doc.items.map(({code,name,size,qty})=>({code,name,size,qty}))};
-            const items=doc.items.map(({code,name,size,qty,unitPrice,discount,paidTotal,lineTotal})=>({code,name,size,qty,unitPrice,discount,paidTotal,lineTotal}));
-            return {...base,items,total:saleTotal(doc),gross:doc.gross,discount:doc.discount||0,method:doc.method,customerId:doc.customerId||'',customerName:doc.customerName||'Khách lẻ',promotion:doc.promotion,promotionLabel:doc.promotionLabel,cashReceived:doc.cashReceived,change:doc.change,paymentStatus:doc.paymentStatus,lastPrintedAt:doc.lastPrintedAt};
+            const items=window.AtinoERP.salePaidItems(doc).map(({code,name,size,qty,unitPrice,paidTotal,lineTotal})=>({code,name,size,qty,unitPrice,paidTotal,lineTotal}));
+            return {...base,items,sellerId:doc.sellerId,sellerName:doc.sellerName,cashierId:doc.cashierId,cashierName:doc.cashierName,total:saleTotal(doc),method:doc.method,customerId:doc.customerId||'',customerName:doc.customerName||'Khách lẻ',cashReceived:doc.cashReceived,change:doc.change,paymentStatus:doc.paymentStatus,lastPrintedAt:doc.lastPrintedAt};
         });
         return {user:publicAccount(person),products,balances,movements};
     }
@@ -2045,15 +2070,24 @@ window.AtinoDemo = (() => {
         return bytesHex(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:new TextEncoder().encode(salt),iterations:120000},key,256));
     }
 
+    async function makeCredentials(password) {
+        const salt = bytesHex(crypto.getRandomValues(new Uint8Array(16)));
+        return {salt, hash:await passwordHash(password,salt)};
+    }
+
+    const accountStore = window.AtinoAccountStore.create({access,actor,remember,passwordHash,makeCredentials,publicAccount,fail});
+
     async function login(data) {
         const name = String(data.username || '').trim().toLowerCase().normalize('NFC');
         const saved = await access(false,shop => shop.staff.find(person => person.username === name && person.active));
         if (!saved?.hash || typeof data.password !== 'string' || await passwordHash(data.password,saved.salt) !== saved.hash) {
             fail('Tên đăng nhập hoặc mật khẩu thử chưa đúng.',401);
         }
-        const row = await access(false,shop => {
+        const row = await access(true,shop => {
             const latest = shop.staff.find(person => person.code === saved.code);
             if (!latest?.active || saved.revision !== latest.revision) fail('Tài khoản vừa thay đổi. Hãy đăng nhập lại.',401);
+            shop.audit ||= [];
+            shop.audit.unshift({id:crypto.randomUUID(),when:Date.now(),employeeId:latest.code,employeeName:latest.name,action:'Đăng nhập',reference:latest.code});
             return latest;
         });
         remember(row);
@@ -2069,11 +2103,7 @@ window.AtinoDemo = (() => {
             fail('Kiểm tra họ tên, tên đăng nhập và vai trò.');
         }
         if ((!code || password) && (password.length < 8 || password.length > 256)) fail('Mật khẩu cần từ 8 đến 256 ký tự.');
-        let credentials = {};
-        if (password) {
-            const salt = bytesHex(crypto.getRandomValues(new Uint8Array(16)));
-            credentials = {salt,hash:await passwordHash(password,salt)};
-        }
+        const credentials = password ? await makeCredentials(password) : {};
         return access(true, shop => {
             const user = actor(shop,['manager']);
             let row;
@@ -2087,7 +2117,8 @@ window.AtinoDemo = (() => {
                 row = {code:'NV' + String(shop.staff.length+1).padStart(3,'0'),username,revision:1};
                 shop.staff.push(row);
             }
-            Object.assign(row,{name,role:data.role,active:data.active},credentials,window.AtinoERP?.employeeFields(data) || {});
+            Object.assign(row,{name,role:data.role,active:data.active},credentials,window.AtinoERP?.employeeFields(data,row) || {});
+            if (password) delete row.recoveryHash;
             if (user.code === row.code) remember(row);
             if (shop.audit) shop.audit.unshift({id:crypto.randomUUID(),when:Date.now(),employeeId:user.code,employeeName:user.name,action:'Cập nhật nhân viên',reference:row.code});
             return {code:row.code};
@@ -2096,7 +2127,7 @@ window.AtinoDemo = (() => {
 
     function checkProduct(draft) {
         if (!draft || !draft.name?.trim() || !Number.isSafeInteger(draft.price) || draft.price <= 0 || draft.price > 1e9 || !Object.hasOwn(categoryPrefixes,draft.category)) {
-            fail('Thông tin mẫu mới không hợp lệ.');
+            fail('Thông tin sản phẩm mới không hợp lệ.');
         }
     }
 
@@ -2106,7 +2137,7 @@ window.AtinoDemo = (() => {
         const existing = shop.products.find(product => product.code === code);
         if (existing) {
             if (['name','category','price','description','image'].some(key => (existing[key] ?? '') !== (draft[key] ?? ''))) {
-                fail('Mã mẫu vừa được sử dụng. Mở lại danh mục để lấy mã mới.',409);
+                fail('Mã sản phẩm vừa được sử dụng. Mở lại danh mục để lấy mã mới.',409);
             }
         } else {
             if (nextProductCode(draft.category,shop.products) !== code) fail('Danh mục vừa thay đổi. Mở lại danh mục để lấy mã mới.',409);
@@ -2128,26 +2159,26 @@ window.AtinoDemo = (() => {
     function record(shop,data) {
         const type = data.type;
         const person = actor(shop);
-        if (!['receipt','transfer','sale'].includes(type)) fail('Loại chứng từ không hợp lệ.');
-        if(person.role==='employee'&&['receipt','transfer'].includes(type))fail('Sử dụng biểu mẫu nhập/xuất hàng dành cho nhân viên.',403);
+        if (!['receipt','sale'].includes(type)) fail('Loại chứng từ không hợp lệ.');
+        if(person.role==='employee'&&type==='receipt')fail('Sử dụng phiếu nhập hàng dành cho nhân viên.',403);
         if (!data.requestId || !Array.isArray(data.lines) || data.lines.length > 500) fail('Chứng từ không hợp lệ.');
         const signature = JSON.stringify(data);
         const old = shop.movements.find(doc => doc.requestId === data.requestId);
         if (old) {
-            if (old.employeeId !== person.code || old.signature !== signature) fail('Mã lần lưu đã được dùng cho chứng từ khác.',409);
+            if (old.employeeId !== person.code || (old.signature !== signature && old.currentCodeSignature !== signature)) fail('Mã lần lưu đã được dùng cho chứng từ khác.',409);
             return {documentId:old.id,state:view(shop,person)};
         }
         const products = [...shop.products], mappings = new Map();
-        if (data.newProducts?.length && person.role !== 'manager') fail('Chỉ quản lý được tạo mẫu và đặt giá bán.',403);
+        if (data.newProducts?.length && person.role !== 'manager') fail('Chỉ quản lý được tạo sản phẩm và đặt giá bán.',403);
         for (const draft of data.newProducts || []) {
-            if (type !== 'receipt' || mappings.has(draft.code) || !data.lines.some(line=>line.code===draft.code)) fail('Mẫu mới chưa có dòng phiếu nhập hợp lệ.');
+            if (type !== 'receipt' || mappings.has(draft.code) || !data.lines.some(line=>line.code===draft.code)) fail('Sản phẩm mới chưa có dòng phiếu nhập hợp lệ.');
             checkProduct(draft);
             const code = nextProductCode(draft.category, products);
             mappings.set(draft.code, code);
             products.push({...draft,code});
         }
         const lines = data.lines.map(line=>({...line,code:mappings.get(line.code) || line.code}));
-        const note = type === 'transfer' ? 'Chuyển từ kho ra quầy' : String(data.note || '').trim();
+        const note = String(data.note || '').trim();
         if (type === 'sale' && !['Chuyển khoản','Tiền mặt'].includes(note)) fail('Chọn phương thức thanh toán.');
         let next;
         try { next = recordMovement({...shop,products},type,lines,note,Date.now()); }
@@ -2155,6 +2186,7 @@ window.AtinoDemo = (() => {
         const doc = next.movements.at(-1);
         if (!Number.isSafeInteger(saleTotal(doc))) fail('Tổng tiền vượt giới hạn của chứng từ.');
         if (type === 'sale' && saleTotal(doc) !== data.expectedTotal) fail('Tổng tiền đã thay đổi. Hãy kiểm tra lại giỏ hàng.',409);
+        if (type === 'sale') Object.assign(doc,window.AtinoERP.saleStaff(shop.staff,data.sellerId,person));
         Object.assign(doc,{employeeId:person.code,employeeName:person.name,requestId:data.requestId,signature});
         shop.products = products;
         shop.movements = next.movements;
@@ -2182,7 +2214,8 @@ window.AtinoDemo = (() => {
             if (period === 'range' ? day < value || day > end : !day.startsWith(value)) continue;
             const amount = saleTotal(doc);
             count++; revenue += amount;
-            const person = staff.get(doc.employeeId) || {code:doc.employeeId,name:shop.staff.find(p=>p.code===doc.employeeId)?.name || doc.employeeName,count:0,revenue:0};
+            const owner = window.AtinoERP.revenueEmployee(doc);
+            const person = staff.get(owner.code) || {code:owner.code,name:shop.staff.find(p=>p.code===owner.code)?.name || owner.name,count:0,revenue:0};
             person.count++; person.revenue += amount; staff.set(person.code,person);
             for (const item of doc.items) {
                 const key = scanCode(item.code,item.size);
@@ -2206,6 +2239,11 @@ window.AtinoDemo = (() => {
         if (route==='login') return login(data);
         if (route==='logout') { remember(null); return {ok:true}; }
         if (route==='state') return access(false,shop=>view(shop,actor(shop)));
+        if (route==='account' && !options.method) return accountStore.read();
+        if (route==='account/profile' && options.method==='PATCH') return accountStore.saveProfile(data);
+        if (route==='account/password' && options.method==='POST') return accountStore.changePassword(data);
+        if (route==='account/recovery-code' && options.method==='POST') return accountStore.issueRecoveryCode(data);
+        if (route==='account/reset-password' && options.method==='POST') return accountStore.resetPassword(data);
         if (route==='documents' && options.method==='POST') return access(true,shop=>record(shop,data));
         const productRoute = /^products\/([A-Z0-9_-]+)(\/price)?$/.exec(route);
         if (productRoute && !productRoute[2] && options.method==='PUT') return access(true,shop=>putCatalogProduct(shop,productRoute[1],data));
@@ -2495,11 +2533,11 @@ function stockProductButton(product) {
 
 function stockSizeRows(variants, code) {
     return Array.from(variants, ([size, qty]) => {
-        const low = size !== legacySize && qty.counter <= 1;
-        const counter = low ? `<span class="low-count"><span aria-hidden="true">!</span><span class="sr-only">Sắp hết: </span>${qty.counter}</span>` : qty.counter;
+        const low = size !== legacySize && qty.total <= 1;
+        const balance = low ? `<span class="low-count"><span aria-hidden="true">!</span><span class="sr-only">Sắp hết: </span>${qty.total}</span>` : qty.total;
         const printButton = size !== legacySize
             ? `<button type="button" data-label-code="${escapeHtml(code)}" data-label-size="${escapeHtml(size)}" aria-label="In tem ${escapeHtml(scanCode(code,size))}">In tem</button>` : '';
-        return `<tr><th scope="row">${escapeHtml(size)}</th><td>${qty.warehouse}</td><td>${counter}</td><td class="stock-detail-print">${printButton}</td></tr>`;
+        return `<tr><th scope="row">${escapeHtml(size)}</th><td>${balance}</td><td class="stock-detail-print">${printButton}</td></tr>`;
     }).join('');
 }
 
@@ -2512,17 +2550,17 @@ function stockDisclosure(product) {
 
 function stockProductDetails(product, variants, inline) {
     const code = product.code;
-    const total = totalAt(variants,'warehouse') + totalAt(variants,'counter');
-    const lowSizes = sizes.filter(size => variants.get(size)?.counter <= 1).length;
+    const total = totalStock(variants);
+    const lowSizes = [...variants].filter(([size, balance]) => size !== legacySize && balance.total <= 1).length;
     const title = inline ? '' : `<h2 id="stock-product-title">${escapeHtml(product.name)}</h2>`;
     return `<header class="stock-product-head">
             <div class="stock-product-photo">${picture(product,'stock-product-thumb')}</div>
             <div>${title}<p>Mã: ${escapeHtml(code)}</p><strong>${money.format(product.price)}</strong></div>
         </header>
         <table class="stock-product-sizes" aria-label="${escapeHtml(product.name)}"><thead><tr>
-            <th scope="col">Size</th><th scope="col">Trong kho</th><th scope="col">Ngoài quầy</th><th scope="col" class="stock-detail-print">Tem</th>
+            <th scope="col">Size</th><th scope="col">Số lượng trong cửa hàng</th><th scope="col" class="stock-detail-print">Tem</th>
         </tr></thead><tbody>${stockSizeRows(variants,code)}</tbody></table>
-        <footer class="stock-product-totals"><span>Tổng số lượng: <strong>${total} chiếc</strong></span>
+        <footer class="stock-product-totals"><span>Số lượng trong cửa hàng: <strong>${total} chiếc</strong></span>
             ${lowSizes ? `<strong class="stock-product-alert">${lowSizes} size sắp hết</strong>` : ''}</footer>`;
 }
 
@@ -2756,7 +2794,6 @@ const jeansIcon = svg(legs + '<path d="M9 6q0 4-4 4m10-4q0 4 4 4m-7-4v3"/>');
 const jacketIcon = svg('<path d="m8 3-4 3-2 13 4 1 2-9v10h8V11l2 9 4-1-2-13-4-3-4 2zM8 3l2 5 2-3 2 3 2-5m-4 2v16m-4-4 2-2m4 0 2 2"/>');
 const categoryIcons = [tshirtIcon, poloIcon, trousersIcon, jeansIcon, jacketIcon];
 const shirtIcon = tshirtIcon;
-const docTypes = {PN:'Phiếu nhập', PX:'Phiếu xuất', TH:'Thu hồi về kho', HD:'Hóa đơn'};
 const sizes = ['S', 'M', 'L', 'XL', 'XXL'];
 function productSizes(product) {return window.AtinoCatalog?.sizesFor(product)||sizes.slice();}
 const legacySize = 'Chưa phân size';
@@ -2774,69 +2811,43 @@ const saleDayFormat = new Intl.DateTimeFormat('en-CA', {
 const returnWindow = 30 * 24 * 60 * 60 * 1000;
 const byId = id => document.getElementById(id);
 
-// Counter and warehouse opening quantities by size for the sample store.
+// Số lượng đầu kỳ theo kích cỡ của cửa hàng.
 const demo = [
-    ['AT001', 'Áo phông cổ tròn', 0, 159000, 95000, {S:2, M:2, L:2, XL:2, XXL:2}, {L:10}],
-    ['AP001', 'Áo polo trơn', 1, 249000, 150000, {S:2, M:3, L:3, XL:3, XXL:2}, {M:10, L:10, XL:10, XXL:10}],
-    ['QA001', 'Quần âu dáng suông', 2, 329000, 210000, {S:2, M:2, L:3, XL:2, XXL:2}, {L:10}],
-    ['QJ001', 'Quần jean ống đứng', 3, 379000, 230000, {S:3, M:2, L:2, XL:2, XXL:2}, {L:10}],
-    ['AK001', 'Áo khoác nhẹ', 4, 449000, 280000, {S:2, M:2, L:3, XL:2, XXL:2}, {L:10}]
+    ['AT001', 'Áo phông cổ tròn', 0, 159000, 95000, {S:2, M:2, L:12, XL:2, XXL:2}],
+    ['AP001', 'Áo polo trơn', 1, 249000, 150000, {S:2, M:13, L:13, XL:13, XXL:12}],
+    ['QA001', 'Quần âu dáng suông', 2, 329000, 210000, {S:2, M:2, L:13, XL:2, XXL:2}],
+    ['QJ001', 'Quần jean ống đứng', 3, 379000, 230000, {S:3, M:2, L:12, XL:2, XXL:2}],
+    ['AK001', 'Áo khoác nhẹ', 4, 449000, 280000, {S:2, M:2, L:13, XL:2, XXL:2}]
 ];
 
 function initialState() {
     const products = demo.map(([code, name, category, price]) => ({
-        code, name, category:categories[category], price, image:'', description:'Mẫu minh họa.'
+        code, name, category:categories[category], price, image:'', description:''
     }));
     const received = [];
-    const displayed = [];
-    for (const [code, name, , , unitPrice, counter, warehouse] of demo) {
-        for (const size of sizes) {
-            const qty = counter[size] || 0;
-            const total = qty + (warehouse[size] || 0);
-            if (total) received.push({code, name, size, qty:total, unitPrice});
-            if (qty) displayed.push({code, name, size, qty, unitPrice});
-        }
+    for (const [code, name, , , unitPrice, quantities] of demo) {
+        for (const [size, qty] of Object.entries(quantities)) received.push({code, name, size, qty, unitPrice});
     }
     return {products, movements:[
-        {id:'PN0001', type:'receipt', when:null, note:'Dữ liệu mẫu', items:received},
-        {id:'PX0001', type:'transfer', when:null, note:'Dữ liệu mẫu', items:displayed}
+        {id:'PN0001', type:'receipt', when:null, note:'Số lượng đầu kỳ', items:received}
     ]};
 }
 
 function inventory(state) {
-    if (window.AtinoERP && !Array.isArray(state.balances)) return window.AtinoERP.inventory(state);
+    if (!Array.isArray(state.balances)) return window.AtinoERP.inventory(state);
     const totals = new Map(state.products.map(product => [
-        product.code, new Map(productSizes(product).map(size => [size, {warehouse:0, counter:0}]))
+        product.code, new Map(productSizes(product).map(size => [size, {total:0}]))
     ]));
-    if (Array.isArray(state.balances)) {
-        for (const row of state.balances) {
-            totals.get(row.code).set(row.size, {warehouse:row.warehouse, counter:row.counter});
-        }
-        return totals;
-    }
-    for (const movement of state.movements) {
-        for (const item of movement.items) {
-            const variants = totals.get(item.code);
-            const size = item.size ?? legacySize;
-            if (!variants.has(size)) variants.set(size, {warehouse:0, counter:0});
-            const row = variants.get(size);
-            if (movement.type === 'receipt') {
-                // The previous version treated all available stock as sellable at the counter.
-                row[item.size ? 'warehouse' : 'counter'] += item.qty;
-            } else if (movement.type === 'transfer') {
-                const toCounter = movement.direction === 'toWarehouse' ? -item.qty : item.qty;
-                row.warehouse -= toCounter;
-                row.counter += toCounter;
-            } else {
-                row.counter -= item.qty;
-            }
-        }
+    for (const row of state.balances) {
+        if (!totals.has(row.code)) totals.set(row.code, new Map());
+        const total = row.total ?? (row.warehouse || 0) + (row.counter || 0);
+        totals.get(row.code).set(row.size, {total});
     }
     return totals;
 }
 
-function totalAt(variants, location) {
-    return [...variants.values()].reduce((sum, row) => sum + row[location], 0);
+function totalStock(variants) {
+    return [...variants.values()].reduce((sum, row) => sum + row.total, 0);
 }
 
 function scanCode(code, size) {
@@ -2854,22 +2865,20 @@ function recordMovement(state, type, inputLines, note, when) {
         const variant = stock.get(line.code).get(line.size);
         if (!variant || (line.size === legacySize && type !== 'sale')) throw new Error('Chọn size hợp lệ.');
         const lineKey = JSON.stringify([line.code, line.size]);
-        if (used.has(lineKey)) throw new Error('Mỗi mẫu và size chỉ xuất hiện một dòng.');
+        if (used.has(lineKey)) throw new Error('Mỗi sản phẩm và kích cỡ chỉ xuất hiện một dòng.');
         used.add(lineKey);
         if (!Number.isInteger(line.qty) || line.qty < 1 || line.qty > quantityLimit) {
             throw new Error('Số lượng mỗi dòng phải là số nguyên từ 1 đến 100.000.');
         }
-        const location = type === 'sale' ? 'counter' : 'warehouse';
-        const available = type === 'sale' ? variant.warehouse + variant.counter : variant[location];
+        const available = variant.total;
         if (type !== 'receipt' && line.qty > available) {
-            const place = type === 'sale' ? 'tại cửa hàng' : 'trong kho';
-            throw new Error(`${product.name} size ${line.size} chỉ còn ${available} cái ${place}.`);
+            throw new Error(`${product.name} size ${line.size} chỉ còn ${available} cái trong cửa hàng.`);
         }
         const unitPrice = type === 'sale' ? product.price : line.unitPrice;
-        if (type !== 'transfer' && (!Number.isInteger(unitPrice) || unitPrice < 1 || unitPrice > 1000000000)) {
+        if (!Number.isInteger(unitPrice) || unitPrice < 1 || unitPrice > 1000000000) {
             throw new Error('Đơn giá phải là số nguyên dương, tối đa 1 tỷ đồng.');
         }
-        return {code:product.code, name:product.name, size:line.size, qty:line.qty, unitPrice:type === 'transfer' ? 0 : unitPrice, ...(type === 'sale' ? {counterQty:Math.min(line.qty,variant.counter),warehouseQty:Math.max(0,line.qty-variant.counter)} : {})};
+        return {code:product.code, name:product.name, size:line.size, qty:line.qty, unitPrice};
     });
     const sequence = state.movements.filter(movement => movement.type === type).length + 1;
     const movement = {id:movementLabels[type].prefix + String(sequence).padStart(4, '0'), type, when, note, items};
@@ -2883,6 +2892,7 @@ function escapeHtml(value) {
 
 function imageUrl(value) {
     if (!value) return '';
+    if (window.AtinoImages?.isDataImage(value)) return value;
     try {
         const url = new URL(value);
         if (url.protocol === 'https:') return url.href;
@@ -2940,7 +2950,7 @@ function renderCatalog() {
                 <p class="text-xs text-slate-500">${escapeHtml(product.code)}</p>
                 <h3 class="font-bold text-sm">${escapeHtml(product.name)}</h3>
                 <p class="text-sm font-semibold text-blue-700 mt-1">${money.format(product.price)}</p>
-                <p class="text-sm mt-1">Quầy ${totalAt(stock.get(product.code), 'counter')} · Kho ${totalAt(stock.get(product.code), 'warehouse')}</p>
+                <p class="text-sm mt-1">Số lượng trong cửa hàng ${totalStock(stock.get(product.code))}</p>
             </div>
         </button>`).join('') || '<p class="col-span-full text-sm text-slate-600">Không tìm thấy sản phẩm.</p>';
 
@@ -2950,11 +2960,10 @@ const selectedStockSizes = new Map();
 
 function showStockSize(row, code, size, stock) {
     const variant = stock.get(code)?.get(size);
-    const [scan, warehouse, counter] = [...row.cells].slice(3);
+    const [scan, quantity] = [...row.cells].slice(3);
     scan.replaceChildren('—');
-    warehouse.textContent = variant?.warehouse ?? '—';
-    counter.textContent = variant?.counter ?? '—';
-    counter.classList.toggle('low-count', Boolean(variant && variant.counter <= 1));
+    quantity.textContent = variant?.total ?? '—';
+    quantity.classList.toggle('low-count', Boolean(variant && variant.total <= 1));
     if (!variant || size === legacySize) return;
 
     const label = document.createElement('button');
@@ -2975,21 +2984,21 @@ function renderStock(stock = inventory(state)) {
     body.innerHTML = products.map(product => {
         const variants = stock.get(product.code);
         const options = [...variants.keys()].map(size =>
-            `<option value="${escapeHtml(size)}">${escapeHtml(size)}${variants.get(size).counter <= 1 ? " · Còn " + variants.get(size).counter + " ngoài quầy" : ""}</option>`).join('');
+            `<option value="${escapeHtml(size)}">${escapeHtml(size)}${size !== legacySize && variants.get(size).total <= 1 ? " · Còn " + variants.get(size).total : ""}</option>`).join('');
         return `<tr>
             <td>${escapeHtml(product.code)}</td>
             <td>${stockProductButton(product)}</td>
             <td><select data-stock-size="${escapeHtml(product.code)}" class="field mt-0 min-w-[7.5rem]" aria-label="Chọn size cho ${escapeHtml(product.name)}">
                 <option value="">Chọn size</option>${options}</select></td>
-            <td>—</td><td>—</td><td class="font-semibold">—</td>
+            <td>—</td><td class="font-semibold">—</td>
         </tr>`;
-    }).join('') || '<tr><td colspan="6">Không tìm thấy sản phẩm.</td></tr>';
+    }).join('') || '<tr><td colspan="5">Không tìm thấy sản phẩm.</td></tr>';
 
     for (const select of body.querySelectorAll('[data-stock-size]')) {
         const code = select.dataset.stockSize;
         const variants = stock.get(code);
         const size = selectedStockSizes.has(code) ? selectedStockSizes.get(code) :
-            ([...variants].find(([, balance]) => balance.counter <= 1)?.[0] || sizes[0]);
+            ([...variants].find(([size, balance]) => size !== legacySize && balance.total <= 1)?.[0] || sizes[0]);
         if (stock.get(code).has(size)) {
             select.value = size;
             showStockSize(select.closest('tr'), code, size, stock);
@@ -3007,17 +3016,17 @@ byId('stock-rows').addEventListener('change', event => {
 
 function renderHistory() {
     byId('history-list').innerHTML = [...state.movements].reverse().map(movement => {
-        const returning = movement.direction === 'toWarehouse';
-        const title = returning ? docTypes.TH : movementLabels[movement.type].label;
+        const legacyTransfer = movement.type === 'transfer';
+        const title = {dispatch:'Phiếu xuất', exchange:'Phiếu đổi hàng', transfer:'Chứng từ điều chuyển cũ'}[movement.type] || movementLabels[movement.type]?.label || 'Chứng từ';
         const total = movement.items.reduce((sum, item) => sum + item.qty * item.unitPrice, 0);
-        const summary = movement.type === 'transfer' ? (returning ? 'Quầy → kho' : 'Kho → quầy') : money.format(total);
+        const summary = legacyTransfer ? 'Lịch sử' : money.format(total);
         return `<details class="rounded-xl border border-slate-200 p-3">
-            <summary class="cursor-pointer font-semibold">${title} ${movement.id} · ${movement.when ? date.format(movement.when) : 'Dữ liệu mẫu'} · ${summary}</summary>
+            <summary class="cursor-pointer font-semibold">${title} ${movement.id} · ${movement.when ? date.format(movement.when) : 'Chưa ghi nhận ngày'} · ${summary}</summary>
             <p class="text-sm mt-2">${escapeHtml(movement.note)}</p>
-            <p class="text-sm">Người lập: ${escapeHtml(movement.employeeId || '—')} · ${escapeHtml(movement.employeeName || 'Dữ liệu mẫu')}</p>
+            <p class="text-sm">Người lập: ${escapeHtml(movement.employeeId || '—')} · ${escapeHtml(movement.employeeName || 'Chưa ghi nhận')}</p>
             <ul class="space-y-1 mt-2 text-sm">${movement.items.map(item =>
-                `<li>${escapeHtml(item.code)} · ${escapeHtml(item.name)} · ${item.size ?? legacySize} · ${item.qty} cái${movement.type === 'transfer' ? '' : ' × ' + money.format(item.unitPrice)}</li>`).join('')}</ul>
-            ${movement.type === 'receipt' && movement.items.some(item => sizes.includes(item.size)) ? `<button type="button" class="secondary mt-3" data-labels-receipt="${escapeHtml(movement.id)}">In tem QR phiếu nhập</button>` : ''}
+                `<li>${escapeHtml(item.code)} · ${escapeHtml(item.name)} · ${escapeHtml(item.size ?? legacySize)} · ${item.qty} cái${legacyTransfer ? '' : ' × ' + money.format(item.unitPrice)}</li>`).join('')}</ul>
+            ${movement.type === 'receipt' && movement.items.some(item => item.size && item.size !== legacySize) ? `<button type="button" class="secondary mt-3" data-labels-receipt="${escapeHtml(movement.id)}">In tem QR phiếu nhập</button>` : ''}
         </details>`;
     }).join('') || '<p>Chưa có chứng từ.</p>';
 }
@@ -3097,11 +3106,11 @@ async function printInvoice(button) {
             <p><strong>Hóa đơn ${escapeHtml(sale.id)}</strong></p>
             <p>Giờ lập: ${Number.isFinite(sale.when) ? date.format(sale.when) : '—'}</p>
             <p>Giờ in: ${date.format(printedAt)}</p>
-            <p>Thanh toán: ${escapeHtml(sale.method || sale.note || '—')}</p><p>Người lập: ${escapeHtml(sale.employeeId)} · ${escapeHtml(sale.employeeName)}</p>
-            <table class="w-full my-3"><thead><tr><th>Sản phẩm</th><th>Size</th><th>SL</th><th>Đơn giá</th><th>Thành tiền</th></tr></thead>
-            <tbody>${sale.items.map(item => `<tr><td>${escapeHtml(item.name)}</td><td>${escapeHtml(item.size ?? legacySize)}</td><td>${item.qty}</td>
-                <td>${money.format(item.unitPrice)}</td><td>${money.format(item.qty * item.unitPrice)}</td></tr>`).join('')}</tbody></table>
-            <p>Tạm tính: ${money.format(sale.gross ?? sale.items.reduce((sum,item)=>sum+item.qty*item.unitPrice,0))}</p><p>Ưu đãi${sale.promotionLabel ? ' · '+escapeHtml(sale.promotionLabel) : ''}: −${money.format(sale.discount || 0)}</p><p><strong>Thực thu: ${money.format(saleTotal(sale))}</strong></p>`;
+            <p>Thanh toán: ${escapeHtml(sale.method || sale.note || '—')}</p>${window.AtinoERP.documentPeople(sale).map(([label,value])=>`<p>${escapeHtml(label)}: ${escapeHtml(value)}</p>`).join('')}
+            <table class="w-full my-3"><thead><tr><th>Sản phẩm</th><th>Size</th><th>SL</th><th>Đơn giá</th><th>Thực trả</th></tr></thead>
+            <tbody>${sale.items.map(item => `<tr><td>${escapeHtml(item.name)}<small class="invoice-item-code">${escapeHtml(item.code)}</small></td><td>${escapeHtml(item.size ?? legacySize)}</td><td>${item.qty}</td>
+                <td>${money.format(item.unitPrice)}</td><td>${money.format(item.paidTotal ?? item.qty * item.unitPrice)}</td></tr>`).join('')}</tbody></table>
+            <p><strong>Thực thu: ${money.format(saleTotal(sale))}</strong></p>`;
         document.body.classList.add('printing-invoice');
         window.print();
         if (page === 'sales') {
@@ -3164,7 +3173,6 @@ const labelsDialog = byId('labels-dialog');
 const transferAccount = null;
 let pendingSale = null;
 const receiptReview = byId('receipt-review');
-const receiptDrafts = new WeakMap();
 const receiptProducts = new Map();
 let pendingReceipt = null;
 productForm.elements.category.replaceChildren(...categories.map(category => new Option(category)));
@@ -3172,7 +3180,7 @@ productForm.elements.category.replaceChildren(...categories.map(category => new 
 function selectableProducts() {
     if (movementType === 'receipt') return [...state.products, ...receiptProducts.values()].filter(p=>p.active!==false);
     const stock = inventory(state);
-    return state.products.filter(product => (product.active!==false || movementType==='transfer') && (totalAt(stock.get(product.code),'counter')+totalAt(stock.get(product.code),'warehouse')) > 0);
+    return state.products.filter(product => (product.active!==false || movementType==='transfer') && totalStock(stock.get(product.code)) > 0);
 }
 
 function createLine() {
@@ -3188,16 +3196,6 @@ function createLine() {
         <label>Số lượng<input name="qty" class="field" required type="number" inputmode="numeric" min="1" max="${quantityLimit}" step="1"></label>
         ${movementType === 'receipt' ? '<label>'+ (currentUser?.role==='employee'?'Giá bán':'Giá nhập') +' (đ)<input name="unitPrice" class="field" required type="number" min="1" max="1000000000" step="1"></label>' : '<p class="line-price text-sm pb-2"></p>'}
         <button type="button" data-remove-line class="secondary">Bỏ dòng</button>`;
-    if (movementType === 'receipt') {
-        line.querySelector('[name=size]').required = false;
-        const quantity = line.querySelector('[name=qty]');
-        quantity.required = false;
-        quantity.value = '';
-        line.querySelector('[name=unitPrice]').required = false;
-        line.insertAdjacentHTML('beforeend', '<p class="receipt-sizes col-span-full text-sm text-slate-600"></p>');
-        receiptDrafts.set(line, new Map());
-        restoreReceiptSize(line);
-    }
     return line;
 }
 
@@ -3223,7 +3221,7 @@ function startMovement(type) {
     byId('save-transaction').hidden = sale;
     byId('transaction-title').textContent = movementLabels[type].title;
     byId('save-transaction').textContent = receipt ? 'Xem lại phiếu nhập' : movementLabels[type].save;
-    byId('add-line').textContent = sale ? 'Thêm sản phẩm' : (receipt ? 'Thêm mặt hàng khác' : 'Thêm mặt hàng xuất');
+    byId('add-line').textContent = sale ? 'Thêm sản phẩm' : (receipt ? 'Thêm dòng sản phẩm / size' : 'Thêm mặt hàng xuất');
     const firstLine = addLine();
     if (!receipt && firstLine.querySelector('[name=item]').options.length === 1) {
         notify(sale ? 'Cửa hàng chưa có hàng để bán. Hãy lập phiếu nhập kho.' : 'Kho chưa có hàng để xuất. Hãy lập phiếu nhập kho.');
@@ -3248,67 +3246,29 @@ function fillSizes(line) {
     if (!variants) return;
     for (const [size, row] of variants) {
         if (size === legacySize && movementType !== 'sale') continue;
-        const available = row.warehouse + row.counter;
-        if (available > 0) selection.add(new Option(size + ' · còn ' + available, size));
+        if (row.total > 0) selection.add(new Option(size + ' · Còn ' + row.total, size));
     }
 }
 
-function currentReceiptSizes(line) {
-    const drafts = receiptDrafts.get(line);
+function fillReceiptPrice(line) {
     const code = line.querySelector('[name=item]').value;
-    return drafts.get(code) ?? new Map();
-}
-
-function restoreReceiptSize(line) {
-    const size = line.querySelector('[name=size]').value;
-    const qty = line.querySelector('[name=qty]');
-    const price = line.querySelector('[name=unitPrice]');
-    const drafts = currentReceiptSizes(line);
-    const entry = drafts.get(size);
-    qty.disabled = price.disabled = !size;
-    qty.value = entry?.qty ?? '';
-    const priorPrice = [...drafts.values()].reverse().find(item => Number(item.unitPrice) > 0)?.unitPrice;
-    const product=state.products.find(p=>p.code===line.querySelector('[name=item]').value);
-    price.value = size ? (entry?.unitPrice ?? priorPrice ?? (currentUser?.role==='employee'?product?.price:'') ?? '') : '';
-    renderReceiptSizes(line, drafts);
-}
-
-function rememberReceiptSize(line) {
-    const code = line.querySelector('[name=item]').value;
-    const size = line.querySelector('[name=size]').value;
-    if (!code || !size) return;
-    const drafts = currentReceiptSizes(line);
-    drafts.set(size, {
-        qty:line.querySelector('[name=qty]').value,
-        unitPrice:line.querySelector('[name=unitPrice]').value
-    });
-    receiptDrafts.get(line).set(code, drafts);
-    renderReceiptSizes(line, drafts);
-}
-
-function renderReceiptSizes(line, drafts) {
-    const entries = [...drafts.keys()].filter(size => drafts.get(size)?.qty)
-        .map(size => size + ': ' + drafts.get(size).qty);
-    line.querySelector('.receipt-sizes').textContent = entries.length
-        ? 'Đã chọn · ' + entries.join(' · ')
-        : '';
+    const product = state.products.find(row => row.code === code);
+    line.querySelector('[name=unitPrice]').value = currentUser?.role === 'employee' ? product?.price ?? '' : '';
 }
 
 function receiptLines() {
-    return [...transactionLines.children].flatMap(line => {
-        const code = line.querySelector('[name=item]').value;
-        const drafts = currentReceiptSizes(line);
-        return [...drafts.keys()].filter(size => drafts.get(size)?.qty).map(size => {
-            const {qty, unitPrice} = drafts.get(size);
-            return {code, size, qty:Number(qty), unitPrice:Number(unitPrice)};
-        });
-    });
+    return [...transactionLines.children].map(line => ({
+        code:line.querySelector('[name=item]').value,
+        size:line.querySelector('[name=size]').value,
+        qty:line.querySelector('[name=qty]').valueAsNumber,
+        unitPrice:line.querySelector('[name=unitPrice]').valueAsNumber
+    }));
 }
 
 function recordReceipt(current, receipt) {
     const {lines, supplier, newProducts} = receipt;
     const collision = newProducts.find(product => current.products.some(item => item.code === product.code));
-    if (collision) throw new Error('Mã ' + collision.code + ' vừa được tạo trong phiếu khác. Mở lại phiếu nhập và chọn mẫu đã có.');
+    if (collision) throw new Error('Mã ' + collision.code + ' vừa được tạo trong phiếu khác. Mở lại phiếu nhập và chọn sản phẩm đã có.');
     const products = [...current.products, ...newProducts];
     return recordMovement({...current, products}, 'receipt', lines, supplier, Date.now());
 }
@@ -3328,7 +3288,7 @@ function reviewReceipt(lines, supplier) {
     byId('receipt-review').querySelector('thead th:last-child').textContent=currentUser?.role==='employee'?'Giá bán':'Giá nhập';
     byId('receipt-review-items').innerHTML = preview.items.map(item => `<tr>
         <td>${escapeHtml(item.code)} · ${escapeHtml(item.name)}</td>
-        <td>${item.size}</td><td>${item.qty}</td><td>${money.format(item.unitPrice)}</td></tr>`).join('');
+        <td>${escapeHtml(item.size)}</td><td>${item.qty}</td><td>${money.format(item.unitPrice)}</td></tr>`).join('');
     const count = preview.items.reduce((sum, item) => sum + item.qty, 0);
     const cost = preview.items.reduce((sum, item) => sum + item.qty * item.unitPrice, 0);
     byId('receipt-review-total').textContent = currentUser?.role==='employee'?`Tổng số lượng: ${count} sản phẩm`:`Tổng: ${count} sản phẩm · ${money.format(cost)}`;
@@ -3341,9 +3301,10 @@ function updateTotal() {
     byId('sale-total').hidden = movementType === 'transfer';
     if (movementType === 'transfer') return;
     if (movementType === 'receipt') {
-        const lines=receiptLines();
-        const total = lines.reduce((sum, item) => sum + item.qty * item.unitPrice, 0);
-        byId('sale-total').textContent = currentUser?.role==='employee'?'Tổng số lượng: '+lines.reduce((sum,item)=>sum+item.qty,0)+' sản phẩm':'Tổng tiền nhập: ' + money.format(total);
+        const lines = receiptLines().filter(item => item.code && item.size && Number.isInteger(item.qty) && item.qty > 0 && item.qty <= quantityLimit);
+        const count = lines.reduce((sum, item) => sum + item.qty, 0);
+        const total = lines.reduce((sum, item) => sum + (item.unitPrice > 0 ? item.qty * item.unitPrice : 0), 0);
+        byId('sale-total').textContent = 'Tổng số lượng: ' + count + ' sản phẩm' + (currentUser?.role === 'manager' ? ' · Tiền nhập: ' + money.format(total) : '');
         return;
     }
     let total = 0;
@@ -3378,7 +3339,8 @@ document.addEventListener('click', event => {
     if (button.dataset.stockProduct) openStockProduct(button);
     if (button.dataset.printInvoice) printInvoice(button);
     if (button.dataset.labelCode) {
-        const product = state.products.find(item => item.code === button.dataset.labelCode);
+        const products = window.AtinoManager?.data?.products || state?.products || [];
+        const product = products.find(item => item.code === button.dataset.labelCode);
         if (product) showLabels([{...product, size:button.dataset.labelSize, name:product.name}]);
     }
     if (button.dataset.labelsReceipt) {
@@ -3407,10 +3369,9 @@ transactionLines.addEventListener('input', event => {
     const line = event.target.closest('.movement');
     if (!line) return;
     const name = event.target.name;
-    if (name === 'item') fillSizes(line);
-    if (movementType === 'receipt') {
-        if (name === 'item' || name === 'size') restoreReceiptSize(line);
-        else rememberReceiptSize(line);
+    if (name === 'item') {
+        fillSizes(line);
+        if (movementType === 'receipt') fillReceiptPrice(line);
     }
     updateTotal();
 });
@@ -3419,9 +3380,9 @@ function openProductForm() {
     const catalog = page === 'products';
     productForm.reset();
     fillProductCode();
-    byId('new-product-title').textContent = catalog ? 'Thêm mẫu sản phẩm' : 'Tạo mẫu mới trong phiếu nhập';
-    byId('code-hint').textContent = catalog ? 'Mã sản phẩm được cấp tự động theo danh mục.' : 'Mẫu mới được lưu cùng phiếu nhập sau khi chọn size và số lượng.';
-    productForm.querySelector('[type=submit]').textContent = catalog ? 'Lưu mẫu' : 'Thêm mẫu vào phiếu';
+    byId('new-product-title').textContent = catalog ? 'Thêm sản phẩm' : 'Tạo sản phẩm mới trong phiếu nhập';
+    byId('code-hint').textContent = catalog ? 'Mã sản phẩm được cấp tự động theo danh mục.' : 'Sản phẩm mới được lưu cùng phiếu nhập sau khi chọn size và số lượng.';
+    productForm.querySelector('[type=submit]').textContent = catalog ? 'Lưu sản phẩm' : 'Thêm sản phẩm vào phiếu';
     byId('cancel-product').textContent = catalog ? 'Hủy' : 'Quay lại phiếu nhập';
     byId('product-error').textContent = '';
     productDialog.showModal();
@@ -3455,7 +3416,7 @@ productForm.addEventListener('submit', async event => {
             return;
         }
         if (receiptProducts.has(product.code) || state.products.some(item => item.code === product.code)) {
-            throw new Error('Mã sản phẩm đã tồn tại. Chọn mẫu đã có trên phiếu nhập.');
+            throw new Error('Mã sản phẩm đã tồn tại. Chọn sản phẩm đã có trên phiếu nhập.');
         }
         receiptProducts.set(product.code, product);
         const rows = [...transactionLines.children];
@@ -3465,7 +3426,8 @@ productForm.addEventListener('submit', async event => {
         const row = rows.find(row => !row.querySelector('[name=item]').value) ?? addLine();
         row.querySelector('[name=item]').value = product.code;
         fillSizes(row);
-        restoreReceiptSize(row);
+        fillReceiptPrice(row);
+        updateTotal();
         productDialog.close();
         row.querySelector('[name=size]').focus();
     } catch (error) {
@@ -3483,13 +3445,6 @@ transactionForm.addEventListener('submit', async event => {
     if (type === 'receipt') {
         try {
             notify('');
-            for (const line of transactionLines.children) {
-                rememberReceiptSize(line);
-                const code = line.querySelector('[name=item]').value;
-                if (code && ![...currentReceiptSizes(line).values()].some(entry => entry.qty)) {
-                    throw new Error('Nhập số lượng cho ít nhất một size của mẫu ' + code + '.');
-                }
-            }
             reviewReceipt(receiptLines(), transactionForm.elements.supplier.value.trim());
         } catch (error) {
             notify(error.message);
@@ -3636,7 +3591,7 @@ byId('confirm-sale').addEventListener('click', async () => {
         } else {
             startMovement('sale');
         }
-        notify('Đã lưu ' + saved.id + ' và cập nhật tồn kho cửa hàng.');
+        notify('Đã lưu ' + saved.id + ' và cập nhật số lượng trong cửa hàng.');
     } catch (error) {
         byId('payment-error').textContent = error.message;
     } finally {
@@ -3665,25 +3620,21 @@ function showLabels(items) {
     sheet.replaceChildren();
     errorMessage.textContent = '';
     printButton.disabled = true;
-
+    const products = window.AtinoManager?.data?.products || state?.products || [];
+    const catalog = new Map(products.map(product => [product.code, product]));
     try {
-        for (const item of items.filter(item => item.size&&item.size!==legacySize)) {
-            const code = scanCode(item.code, item.size);
-            const canvas = document.createElement('canvas');
-            drawQr(canvas, code);
-
-            const label = document.createElement('div');
-            label.className = 'product-label';
-            const name = document.createElement('strong');
-            name.textContent = item.name;
-            const caption = document.createElement('span');
-            caption.textContent = code + ' · Size ' + item.size;
-            label.append(name, canvas, caption);
-            sheet.append(label);
+        const tags = document.createDocumentFragment();
+        for (const item of items) {
+            if (!item.size || item.size === legacySize) continue;
+            const saved = catalog.get(item.code);
+            const product = saved || {...item, price:item.sellingPrice ?? item.price};
+            tags.append(window.AtinoLabels.create(product, item.size));
         }
+        sheet.append(tags);
         printButton.disabled = !sheet.childElementCount;
+        if (printButton.disabled) errorMessage.textContent = 'Chưa có kích cỡ để in tem.';
     } catch {
-        errorMessage.textContent = 'Không tạo được tem QR. Thử mở lại tem từ bảng tồn kho.';
+        errorMessage.textContent = 'Không tạo được tem. Hãy mở lại sản phẩm và thử lại.';
     }
     if (!labelsDialog.open) labelsDialog.showModal();
 }
@@ -3697,13 +3648,15 @@ window.addEventListener('afterprint', () => document.body.classList.remove('prin
 labelsDialog.addEventListener('close', () => document.body.classList.remove('printing-labels'));
 
     </script>
-<script src="assets/erp.js?v=4f6ef0558dd6"></script>
-<script src="assets/manager-shell.js?v=ddbee99145d8"></script>
-<script src="assets/manager-people.js?v=9025b77f9c68"></script>
-<script src="assets/manager-operations.js?v=e1382f2d1b1e"></script>
-<script src="assets/manager-scope.js?v=0cc5180cc34c"></script>
-<script src="assets/integration.js"></script>
-<script src="assets/employee-shell.js"></script>
+<script src="assets/vendor/jszip-3.10.1.min.js"></script>
+<script src="assets/workbook.js?v=6bd7a611a23a"></script>
+<script src="assets/report-export.js?v=83c5a399e49b"></script>
+<script src="assets/manager-shell.js?v=af9f18e56c3b"></script>
+<script src="assets/manager-people.js?v=574570be1512"></script>
+<script src="assets/manager-operations.js?v=17718b530aae"></script>
+<script src="assets/integration.js?v=e6ca9d36351c"></script>
+<script src="assets/account-ui.js?v=01f0bfe57187"></script>
+<script src="assets/employee-shell.js?v=2ea1134cb3cc"></script>
 <script>startWorkspace();</script>
 <script type="text/plain" id="third-party-licenses">qr-code-license.txt
 QRCode for JavaScript

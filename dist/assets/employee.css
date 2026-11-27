@@ -1,4 +1,6 @@
 /* Restrained corners and readable hierarchy shared with the manager workspace. */
+#employee-app .ae-invoice-link{background:none;border:0;padding:0;color:#354da3;text-align:left;font:inherit;font-weight:600;cursor:pointer}
+#employee-app .ae-invoice-link:hover{text-decoration:underline}
 body.employee-active{background:#f5f7fb!important;padding-bottom:0!important;color:#192339!important}
 body.employee-active>header,body.employee-active>main,body.employee-active>footer,body.employee-active>#sell-fab{display:none!important}
 #employee-app[hidden],#employee-app [hidden]{display:none!important}
@@ -135,3 +137,5 @@ body.employee-active :is(#receipt-review,#payment-dialog) :is(.primary,.secondar
 @media print{body.printing-invoice #employee-app{display:none!important}}
 @media(max-width:760px){#employee-app .ae-sidebar{visibility:hidden}#employee-app.ae-nav-open .ae-sidebar{visibility:visible}#employee-app .ae-summary>div>span{font-size:.875rem}}
 @media(max-width:420px){#employee-app .ae-history-toolbar label:not(.ae-query){width:100%}}
+
+.ae-summary button{display:block;width:100%;text-align:left;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer}.ae-summary button span{font-size:.875rem;color:var(--ae-muted)}.ae-summary button:hover strong,.ae-summary button:focus-visible strong{color:#4338ca}.ae-product-group{border-bottom:1px solid var(--ae-border);padding:.65rem 0}.ae-product-group summary{cursor:pointer}.ae-product-group summary span{margin-left:1rem}.ae-product-group[open] summary{margin-bottom:.6rem}

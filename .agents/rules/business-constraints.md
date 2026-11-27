@@ -1,46 +1,42 @@
-# Quy tắc Nghiệp vụ Chốt (Atino Store Management)
+# Quy tắc Nghiệp vụ Chốt (Atino Store Management — Bản đồng bộ mới nhất)
 
-Mọi code Backend, SQL và chỉnh sửa Frontend đều phải tuân thủ chính xác 10 nhóm nghiệp vụ đã chốt sau:
+Mọi code Backend Python, SQL MySQL và nối API Frontend đều phải tuân thủ chính xác các quy tắc nghiệp vụ đang chạy trên `dist/` sau:
 
-1. **A. Phân quyền & Đăng nhập:**
+1. **Đăng nhập, Phân quyền & Tài khoản cá nhân:**
    - Chỉ có 2 vai trò: `manager` (Quản lý) và `employee` (Nhân viên).
-   - Mật khẩu lưu dạng băm an toàn (SHA-256 + salt hoặc `werkzeug.security`), không lưu plain text.
-   - Kiểm tra quyền ngay trên server Flask ở mỗi API: nhân viên bị chặn (`403 Forbidden`) khi truy cập dữ liệu giá nhập, báo cáo tài chính, cấu hình nhân viên, voucher, chính sách.
+   - Mật khẩu lưu dạng băm an toàn (SHA-256 + salt hoặc `werkzeug.security`), kèm `revision` để tránh xung đột khi đổi mật khẩu.
+   - Hỗ trợ hồ sơ cá nhân (`name`, `phone`, `email`, `birthday`, `gender`, `address`, `avatar`), đổi mật khẩu, tạo mã khôi phục 32 ký tự hex (lưu dạng băm `recovery_hash`, dùng 1 lần) và đặt lại mật khẩu khi quên.
+   - Kiểm tra quyền chặt trên Flask API: nhân viên bị chặn (`403 Forbidden`) khi truy cập giá nhập, báo cáo tài chính tổng hợp, quản lý nhân viên, khách hàng, chính sách hoặc nhật ký hệ thống.
 
-2. **B. Bán hàng & Thu ngân (POS):**
-   - Kiểm tra tồn kho khả dụng (`warehouse_qty + counter_qty`) theo đúng `product_code` + `size_name`.
-   - Không cho phép 2 dòng trùng `(product_code, size_name)` trong cùng 1 hóa đơn.
-   - Tự động áp dụng ưu đãi tốt nhất (giữa voucher hợp lệ và ưu đãi sinh nhật 10% tối đa 100.000đ, 1 lần/năm).
-   - Thanh toán Tiền mặt yêu cầu `cash_received >= total_amount` và tính `change_amount`. Thanh toán Chuyển khoản yêu cầu `transfer_confirmed = True`.
+2. **Sản phẩm, Tem nhãn & Tồn kho chung theo từng Size:**
+   - **Một số tồn chung duy nhất (`stock_qty`):** Mỗi `(product_code, size_name)` chỉ lưu 1 số lượng tồn duy nhất (`>= 0`). Không chia Kho tổng / Quầy bán, không có `held` (hàng lỗi chờ xử lý).
+   - Thông tin in tem nhãn (`label_color`, `label_material`, `label_manufacturer`, `label_address`, `label_origin`, `label_year`, `label_care`) và thông tin đánh giá tồn (`low_threshold` mặc định `2`, `stock_reason`, `stock_note`, `stock_action`) nằm trực tiếp trên bảng `products`.
+   - Hỗ trợ cảnh báo theo thứ tự ưu tiên: *Hết hàng* → *Hết size* → *Sắp hết hàng* → *Sắp hết size*, và cảnh báo hàng tồn lâu chưa bán (`>= 30 ngày`).
 
-3. **C. Đổi hàng & Trả hàng (ĐÃ ĐIỀU CHỈNH):**
-   - Chỉ cho đổi trong vòng **30 ngày** kể từ ngày mua trên hóa đơn gốc.
-   - **KHÔNG CHO ĐỔI HÀNG LỖI:** Hệ thống chỉ tiếp nhận sản phẩm khách trả lại **còn nguyên vẹn, đạt tiêu chuẩn bán lại**. Mọi trường hợp hàng lỗi đều bị từ chối đổi ngay tại bước kiểm tra đầu vào.
-   - Đổi ngang giá hoặc cao hơn giá trị thực trả (đã trừ phân bổ giảm giá của hóa đơn gốc); thu thêm phần chênh lệch, không hoàn tiền thừa.
-   - Hàng khách trả (đạt chuẩn) được cộng lại vào `warehouse_qty`; hàng mới giao cho khách được trừ khỏi tồn kho (ưu tiên `counter_qty` trước, thiếu mới trừ `warehouse_qty`).
+3. **Nhập kho, Xuất kho & Nhà cung cấp:**
+   - **Chỉ có 1 nhà cung cấp đầu mối:** `NCC001` (*Kho tổng — Công ty TNHH Thời Trang Minh AM*), chỉ cho sửa thông tin liên hệ của `NCC001`.
+   - Nhập kho (`receipt`) cộng số lượng vào `stock_qty`. Nhân viên chỉ nhập số lượng và giá bán (`cost_status = 'pending'`); Quản lý bổ sung giá nhập (`completeReceiptCost`) mà không cộng lại số lượng tồn.
+   - Xuất kho (`dispatch`) chỉ cho xuất ra ngoài cửa hàng (từ chối nơi nhận nội bộ) và trừ `stock_qty`.
 
-4. **D. Quản lý Tồn kho & Hàng hóa (ĐÃ ĐIỀU CHỈNH):**
-   - **KHÔNG có trạng thái `held` (hàng lỗi chờ xử lý).**
-   - Tồn kho theo từng Size của mỗi SKU (`product_sizes`) chỉ gồm **2 cột số lượng**:
-     - `warehouse_qty` (Kho tổng)
-     - `counter_qty` (Quầy bán)
-   - Hỗ trợ cảnh báo thiếu hàng theo từng Size (mặc định ngưỡng `<= 2`), nhập kho, xuất kho/điều chuyển (từ kho tổng ra quầy hoặc xuất trả NCC/nơi khác), bổ sung giá nhập cho quản lý, và in tem nhãn QR.
+4. **Bán hàng & Thu ngân (POS):**
+   - Không có voucher, không có giảm giá sinh nhật; hóa đơn tính thẳng `qty * unit_price`.
+   - Hóa đơn tách riêng **Người bán (`seller_code`)** và **Thu ngân (`cashier_code`)**; doanh thu thống kê theo người bán.
+   - Chặn dòng trùng `(product_code, size_name)` và chặn số lượng vượt `stock_qty`.
+   - Thanh toán `Tiền mặt` yêu cầu `cash_received >= total_amount` và tính `change_amount`; `Chuyển khoản` yêu cầu `transfer_confirmed = TRUE`.
 
-5. **E. Quản lý Khách hàng & Tích điểm (CRM):**
-   - Lưu hồ sơ khách hàng, số điện thoại duy nhất, ngày sinh, lịch sử đơn hàng.
-   - Tự động tính hạng theo tổng chi tiêu: Đồng (`< 2tr`), Bạc (`>= 2tr`), Vàng (`>= 5tr`), Kim cương (`>= 10tr`).
+5. **Đổi hàng (Không nhận hàng lỗi):**
+   - Chỉ cho đổi trong vòng **30 ngày** từ ngày mua trên hóa đơn gốc.
+   - **Từ chối mọi trường hợp hàng lỗi:** `condition_ok` bắt buộc phải là `TRUE` (hàng nguyên vẹn, đủ điều kiện bán lại).
+   - Cho phép đổi từng phần nhiều lần trên cùng hóa đơn (không vượt số lượng đã mua), tính giá trị hàng trả theo `paid_total` đã lưu trên dòng hóa đơn gốc.
+   - Đổi ngang giá hoặc cao hơn giá trị hàng trả (`replacement_total >= credit_amount`), thu thêm chênh lệch, không hoàn tiền thừa. Cộng hàng trả vào `stock_qty` và trừ hàng mới lấy khỏi `stock_qty`.
 
-6. **F. Quản lý Nhân sự & Ca làm việc (HRM & Shifts):**
-   - Quản lý hồ sơ nhân viên, hình thức lương (tháng/giờ), phân ca làm việc (chặn trùng giờ trong cùng ngày, chặn hoàn thành ca ở tương lai), dự toán lương tháng.
+6. **Khách hàng (CRM):**
+   - Lưu hồ sơ khách hàng (`KH...`), kiểm tra trùng SĐT, không tự động giảm giá sinh nhật.
+   - Tự động tính tổng chi tiêu (từ hóa đơn bán + tiền thu thêm đổi hàng) và phân hạng: `Đồng` (`< 2tr`), `Bạc` (`>= 2tr`), `Vàng` (`>= 5tr`), `Kim cương` (`>= 10tr`).
 
-7. **G. Quản lý Khuyến mãi & Voucher:**
-   - Giảm theo `%` (có trần tối đa) hoặc số tiền cố định, đơn tối thiểu, thời gian hiệu lực, giới hạn lượt dùng, hạng thành viên tối thiểu.
+7. **Nhân viên & Ca làm việc (HRM):**
+   - Quản lý hồ sơ, chức vụ, cách tính lương (`monthly` / `hourly`), phân ca làm (`CA...`, chặn trùng giờ trong cùng ngày và chặn hoàn thành ca ở ngày tương lai), dự toán lương tháng.
 
-8. **H. Quản lý Nhà cung cấp (Suppliers):**
-   - Danh mục nhà cung cấp (Kho tổng Atino và các nhà cung cấp khác), trạng thái hoạt động, thông tin liên hệ.
-
-9. **I. Báo cáo & Thống kê Điều hành:**
-   - Doanh thu thực thu theo ngày/tháng/năm (bao gồm hóa đơn bán + khoản thu thêm khi đổi hàng), tách riêng Tiền mặt và Chuyển khoản, top sản phẩm bán chạy, tồn kho và xuất CSV.
-
-10. **J. Nhật ký kiểm toán (Audit Trail):**
-    - Ghi nhận mọi thao tác tạo/sửa/xóa dữ liệu quan trọng vào bảng `audit_logs` gồm: thời gian, mã nhân viên, tên nhân viên, hành động, mã chứng từ tham chiếu.
+8. **Báo cáo, Chính sách & Nhật ký kiểm toán:**
+   - Báo cáo theo Ngày / Tháng / Năm (doanh thu thực thu, tiền mặt vs chuyển khoản, top sản phẩm, doanh thu theo người bán, giá trị tồn theo giá vốn).
+   - Lưu chính sách chung (`store_settings`, `id = 1`) và ghi mọi thao tác quan trọng vào `audit_logs`.

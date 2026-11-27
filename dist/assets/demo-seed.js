@@ -1,16 +1,18 @@
 /*
  * Optional, small classroom dataset for the Atino management demonstration.
  * Product names and public retail-price references come from AtinoCatalog.
- * ALL quantities, purchase prices, people, contacts, shifts and transactions
- * below are fictional examples, not Atino business data. This function never
- * changes account credentials or replaces records already stored by a user.
+ * Quantities, prices, contacts, shifts and transactions are classroom examples.
+ * Demo staff use the requested display names. Custom profiles and credentials
+ * are kept when the sample store is upgraded.
  * Each additive migration anchors its dates once, then leaves them fixed.
  */
 (() => {
   'use strict';
-  const VERSION = 2;
+  const VERSION = 10;
   const TAG = 'atino-static-v1';
   const DAY = 86400000;
+  const staffNames = Object.freeze({NV001: 'Nguyễn Văn Hiếu', NV002: 'Hồ Đình Nam', NV003: 'Dương Thiết Hải'});
+  const oldStaffNames = {NV001: 'Quản lý mẫu', NV002: 'Nhân viên mẫu 1', NV003: 'Nhân viên mẫu 2'};
   const checkedFields = ['jobTitle', 'baseSalary', 'hourlyRate', 'payType', 'startDate', 'defaultShift', 'phone'];
   const codes = Object.freeze({
     'atino-balo-19339': 'DEMO-TB001',
@@ -36,7 +38,7 @@
     if (!shop || typeof shop !== 'object' || Number(shop.staticDemoVersion) >= 1) return false;
     const catalog = window.AtinoCatalog;
     if (!catalog || !Array.isArray(catalog.references) || !catalog.references.length) return false;
-    for (const key of ['products', 'movements', 'customers', 'suppliers', 'staff', 'shifts', 'vouchers', 'returns', 'audit']) {
+    for (const key of ['products', 'movements', 'customers', 'suppliers', 'staff', 'shifts', 'returns', 'audit']) {
       if (!Array.isArray(shop[key])) shop[key] = [];
     }
     if (!shop.stockNotes || typeof shop.stockNotes !== 'object') shop.stockNotes = {};
@@ -53,12 +55,12 @@
 
     let supplier = shop.suppliers.find(row => row.id === 'NCC001');
     if (!supplier) {
-      supplier = {id: 'NCC001', name: 'Kho tổng Atino', active: true, note: 'Đầu mối kho tổng; thông tin liên hệ dưới đây là dữ liệu mẫu.'};
+      supplier = {id: 'NCC001', name: 'Nguồn hàng Atino', active: true, note: 'Đầu mối cung cấp hàng.'};
       shop.suppliers.push(supplier);
     }
     const contactExample = {
-      contact: 'Đầu mối tiếp hàng (mẫu)', phone: '0000 000 001',
-      email: 'khotong@example.invalid', address: 'Địa chỉ kho tổng — dữ liệu minh họa'
+      contact: 'Đầu mối tiếp hàng', phone: '0000 000 001',
+      email: 'khotong@example.invalid', address: ''
     };
     const addedContactFields = [];
     for (const [key, value] of Object.entries(contactExample)) {
@@ -83,7 +85,7 @@
       || shop.staff.find(person => person.role === 'employee' && person.active !== false)
       || shop.staff.find(person => person.active !== false);
     const manager = shop.staff.find(person => person.role === 'manager' && person.active !== false) || employee;
-    const actor = employee ? {employeeId: employee.code, employeeName: employee.name} : {employeeId: 'DEMO-SYSTEM', employeeName: 'Dữ liệu mẫu'};
+    const actor = employee ? {employeeId: employee.code, employeeName: employee.name} : {employeeId: 'DEMO-SYSTEM', employeeName: 'Dữ liệu tĩnh'};
 
     const seededProducts = new Map();
     for (const reference of catalog.references) {
@@ -94,20 +96,20 @@
         price: Number.isSafeInteger(reference.price) && reference.price > 0 ? reference.price : 199000,
         sizes: reference.sizes.slice(), unit: catalog.unitFor(reference.category),
         image: '', active: true, source: reference.source, checkedOn: reference.checkedOn,
-        description: 'Dữ liệu mẫu: tên và giá bán tham khảo từ Atino; số lượng, giá nhập và giao dịch là giả lập.'
+        description: ''
       }), 'code');
       if (product) seededProducts.set(code, product);
     }
 
     const customerExamples = [
-      {id: 'DEMO-KH001', name: 'Nguyễn Minh Anh', birthday: '2000-' + anchor.slice(5), phone: '0000 000 201', email: 'minhanh@example.invalid', address: 'Hà Nội — dữ liệu mẫu'},
-      {id: 'DEMO-KH002', name: 'Trần Hoàng Phúc', birthday: '1998-04-12', phone: '0000 000 202', email: 'hoangphuc@example.invalid', address: 'Hà Nội — dữ liệu mẫu'},
-      {id: 'DEMO-KH003', name: 'Lê Thảo Vy', birthday: '1997-08-21', phone: '0000 000 203', email: 'thaovy@example.invalid', address: 'Hà Nội — dữ liệu mẫu'},
-      {id: 'DEMO-KH004', name: 'Phạm Gia Bảo', birthday: '2001-12-05', phone: '0000 000 204', email: 'giabao@example.invalid', address: 'Hà Nội — dữ liệu mẫu'}
+      {id: 'DEMO-KH001', name: 'Nguyễn Minh Anh', birthday: '2000-' + anchor.slice(5), phone: '0000 000 201', email: 'minhanh@example.invalid', address: 'Hà Nội'},
+      {id: 'DEMO-KH002', name: 'Trần Hoàng Phúc', birthday: '1998-04-12', phone: '0000 000 202', email: 'hoangphuc@example.invalid', address: 'Hà Nội'},
+      {id: 'DEMO-KH003', name: 'Lê Thảo Vy', birthday: '1997-08-21', phone: '0000 000 203', email: 'thaovy@example.invalid', address: 'Hà Nội'},
+      {id: 'DEMO-KH004', name: 'Phạm Gia Bảo', birthday: '2001-12-05', phone: '0000 000 204', email: 'giabao@example.invalid', address: 'Hà Nội'}
     ];
     const seededCustomers = new Map();
     for (const example of customerExamples) {
-      const customer = put(shop.customers, tagged({...example, active: true, note: 'Hồ sơ khách hàng minh họa; không phải thông tin khách hàng thực tế.', createdAt: timeAt(-40)}));
+      const customer = put(shop.customers, tagged({...example, createdAt: timeAt(-40)}));
       if (customer) seededCustomers.set(customer.id, customer);
     }
 
@@ -131,7 +133,7 @@
     });
     const receipt = receiptItems.length ? put(shop.movements, tagged({
       id: 'DEMO-PN001', type: 'receipt', when: timeAt(-18, 9), ...actor,
-      note: 'Phiếu nhập mẫu — số lượng và giá nhập giả lập để minh họa nghiệp vụ.',
+      note: 'Nhập hàng đầu kỳ.',
       supplierId: supplier.id, supplierName: supplier.name, items: receiptItems,
       total: receiptItems.reduce((sum, item) => sum + item.lineTotal, 0), costStatus: 'complete'
     })) : null;
@@ -139,36 +141,8 @@
     // Read available store-wide units, including existing movements, before
     // adding an example transaction. This prevents negative stock even if
     // some sample ids already exist or the user's store has been edited.
-    function availableStock(code, size) {
-      const stock = {warehouse: 0, counter: 0};
-      for (const movement of shop.movements) {
-        if (movement.type === 'exchange' && movement.condition !== 'damaged') {
-          for (const item of movement.returnedItems || []) if (item.code === code && item.size === size) stock.warehouse += item.qty;
-        }
-        for (const item of movement.items || []) {
-          if (item.code !== code || item.size !== size) continue;
-          if (movement.type === 'receipt') stock[item.size ? 'warehouse' : 'counter'] += item.qty;
-          else if (movement.type === 'restock') stock.warehouse += item.qty;
-          else if (movement.type === 'transfer') {
-            const qty = movement.direction === 'toWarehouse' ? -item.qty : item.qty;
-            stock.warehouse -= qty; stock.counter += qty;
-          } else if (['sale', 'dispatch', 'exchange'].includes(movement.type)) {
-            if (Number.isFinite(item.warehouseQty) || Number.isFinite(item.counterQty)) {
-              stock.warehouse -= item.warehouseQty || 0; stock.counter -= item.counterQty || 0;
-            } else stock.counter -= item.qty;
-          }
-        }
-      }
-      return stock;
-    }
     function available(code, size) {
-      const stock = availableStock(code, size);
-      return stock.warehouse >= 0 && stock.counter >= 0 ? stock.warehouse + stock.counter : 0;
-    }
-    function allocation(code, size, qty) {
-      const stock = availableStock(code, size);
-      const counterQty = Math.min(qty, Math.max(0, stock.counter));
-      return {warehouseQty: qty - counterQty, counterQty};
+      return window.AtinoERP.inventory(shop).get(code)?.get(size)?.total || 0;
     }
     function sale(id, customerId, when, rows, method) {
       if (!receipt || shop.movements.some(doc => doc.id === id)) return;
@@ -176,15 +150,14 @@
       if (!customer || rows.some(([code, size, qty]) => !seededProducts.has(code) || available(code, size) < qty)) return;
       const items = rows.map(([code, size, qty]) => {
         const product = seededProducts.get(code), lineTotal = qty * product.price;
-        return {code, name: product.name, size, qty, unitPrice: product.price, lineTotal, discount: 0, paidTotal: lineTotal, ...allocation(code, size, qty)};
+        return {code, name: product.name, size, qty, unitPrice: product.price, lineTotal, paidTotal: lineTotal};
       });
       const total = items.reduce((sum, item) => sum + item.lineTotal, 0);
       const cashReceived = Math.ceil(total / 50000) * 50000;
       put(shop.movements, tagged({
-        id, type: 'sale', when, ...actor, items, gross: total, discount: 0, total,
+        id, type: 'sale', when, ...actor, items, total,
         customerId: customer.id, customerName: customer.name, method, paymentStatus: 'confirmed',
-        promotion: 'none', promotionLabel: 'Không có ưu đãi', voucherId: '',
-        note: 'Hóa đơn mẫu — giao dịch giả lập.',
+        note: 'Giao dịch từ bộ dữ liệu tĩnh.',
         ...(method === 'Tiền mặt' ? {cashReceived, change: cashReceived - total} : {transferConfirmed: true})
       }));
     }
@@ -200,28 +173,17 @@
     if (receipt && dispatchProduct && available(dispatchProduct.code, 'Một cỡ') >= 2) {
       put(shop.movements, tagged({
         id: 'DEMO-XK001', type: 'dispatch', when: timeAt(-2, 11), ...actor,
-        destination: supplier.name, reason: 'Trả hàng về kho tổng — tình huống mẫu',
-        note: 'Phiếu xuất mẫu: trả 2 mũ về kho tổng; hàng rời khỏi cửa hàng.',
-        items: [{code: dispatchProduct.code, name: dispatchProduct.name, size: 'Một cỡ', qty: 2, unitPrice: 0, lineTotal: 0, ...allocation(dispatchProduct.code, 'Một cỡ', 2)}], total: 0
+        destination: supplier.name, reason: 'Trả hàng cho nhà cung cấp',
+        note: 'Trả 2 mũ cho nhà cung cấp.',
+        items: [{code: dispatchProduct.code, name: dispatchProduct.name, size: 'Một cỡ', qty: 2, unitPrice: 0, lineTotal: 0}], total: 0
       }));
     }
     if (seededProducts.has('DEMO-QL001') && !shop.stockNotes['DEMO-QL001']) {
       shop.stockNotes['DEMO-QL001'] = tagged({
-        reason: 'Bán chậm', note: 'Đánh giá mẫu: chưa phát sinh bán hàng trong kỳ minh họa.',
+        reason: 'Bán chậm', note: 'Chưa phát sinh bán hàng trong kỳ.',
         action: 'Theo dõi nhu cầu kích cỡ trước khi tiếp hàng.', threshold: 5,
-        updatedAt: timeAt(-1, 16), updatedBy: manager?.name || 'Dữ liệu mẫu'
+        updatedAt: timeAt(-1, 16), updatedBy: manager?.name || 'Dữ liệu tĩnh'
       });
-    }
-
-    const promoExamples = [
-      {id: 'DEMO-UD001', code: 'DEMO_UDAI_01', name: 'Ưu đãi giữa tuần (mẫu)', value: 5, maxDiscount: 50000, minOrder: 500000, startDate: dateAt(-2), endDate: dateAt(5)},
-      {id: 'DEMO-UD002', code: 'DEMO_UDAI_02', name: 'Ưu đãi đợt tới (mẫu)', value: 5, maxDiscount: 30000, minOrder: 300000, startDate: dateAt(7), endDate: dateAt(14)},
-      {id: 'DEMO-UD003', code: 'DEMO_UDAI_03', name: 'Chăm sóc thành viên (mẫu)', value: 3, maxDiscount: 30000, minOrder: 500000, startDate: dateAt(-18), endDate: dateAt(-12)}
-    ];
-    for (const example of promoExamples) {
-      if (!shop.vouchers.some(row => row.code === example.code && row.id !== example.id)) {
-        put(shop.vouchers, tagged({...example, type: 'percent', active: true, tier: 'all', limit: 100, used: 0}));
-      }
     }
 
     const shiftExamples = [
@@ -240,10 +202,10 @@
   }
 
   function applyV2(shop) {
-    if (Number(shop.staticDemoVersion) >= VERSION) return false;
+    if (Number(shop.staticDemoVersion) >= 2) return false;
     const catalog = window.AtinoCatalog;
     if (!catalog || Number(shop.staticDemoVersion) < 1) return false;
-    for (const key of ['products', 'movements', 'customers', 'suppliers', 'staff', 'shifts', 'vouchers', 'returns', 'audit']) {
+    for (const key of ['products', 'movements', 'customers', 'suppliers', 'staff', 'shifts', 'returns', 'audit']) {
       if (!Array.isArray(shop[key])) shop[key] = [];
     }
     shop.stockNotes ||= {};
@@ -260,7 +222,7 @@
     };
     const annualTime = (monthNumber, day) => Date.parse(`${year}-${String(monthNumber).padStart(2, '0')}-${String(day).padStart(2, '0')}T10:00:00+07:00`);
     const todayTime = fraction => midnight + Math.floor(Math.max(0, now - midnight - 1000) * fraction);
-    const counts = {customers: 0, suppliers: 0, staff: 0, receipts: 0, sales: 0, dispatches: 0, exchanges: 0, shifts: 0, promotions: 0, stockNotes: 0};
+    const counts = {customers: 0, suppliers: 0, staff: 0, receipts: 0, sales: 0, dispatches: 0, exchanges: 0, shifts: 0, stockNotes: 0};
     const insert = (array, row, key = 'id') => {
       if (array.some(existing => existing[key] === row[key])) return false;
       array.push(row); return true;
@@ -268,8 +230,8 @@
 
     // Public-looking contact values remain explicitly fictional/reserved.
     const supplierExamples = [
-      {id: 'DEMO2-NCC002', name: 'Đầu mối tiếp hàng A (mẫu)', contact: 'Mai Anh (mẫu)', phone: '0000 000 302', email: 'tiephang-a@example.invalid', address: 'Địa chỉ minh họa 02, Hà Nội'},
-      {id: 'DEMO2-NCC003', name: 'Đầu mối tiếp hàng B (mẫu)', contact: 'Quốc Bảo (mẫu)', phone: '0000 000 303', email: 'tiephang-b@example.invalid', address: 'Địa chỉ minh họa 03, Hà Nội'}
+      {id: 'DEMO2-NCC002', name: 'Đầu mối tiếp hàng A', contact: 'Mai Anh', phone: '0000 000 302', email: 'tiephang-a@example.invalid', address: 'Địa chỉ minh họa 02, Hà Nội'},
+      {id: 'DEMO2-NCC003', name: 'Đầu mối tiếp hàng B', contact: 'Quốc Bảo', phone: '0000 000 303', email: 'tiephang-b@example.invalid', address: 'Địa chỉ minh họa 03, Hà Nội'}
     ];
     for (const example of supplierExamples) if (insert(shop.suppliers, mark({...example, active: true, note: 'Nhà cung cấp và thông tin liên hệ giả lập để minh họa; không xác nhận đây là đối tác thực tế của Atino.'}))) counts.suppliers++;
 
@@ -283,7 +245,7 @@
     ];
     for (const [id, name, birthday, emailName] of newCustomers) {
       const suffix = id.slice(-3);
-      if (insert(shop.customers, mark({id, name, birthday, phone: '0000 000 4' + suffix.slice(-2), email: emailName + '@example.invalid', address: 'Hà Nội — địa chỉ mẫu', note: 'Khách hàng giả lập. Hạng thành viên được tính từ các hóa đơn minh họa.', active: true, createdAt: annualTime(1, 1)}))) counts.customers++;
+      if (insert(shop.customers, mark({id, name, birthday, phone: '0000 000 4' + suffix.slice(-2), email: emailName + '@example.invalid', address: 'Hà Nội', createdAt: annualTime(1, 1)}))) counts.customers++;
     }
 
     // NV003 is an existing legacy profile. Fill missing descriptive fields;
@@ -297,8 +259,8 @@
     }
     if (shop.staff.length < 4 && !shop.staff.some(person => person.username === 'demo.thanhmai')) {
       if (insert(shop.staff, mark({
-        code: 'DEMO2-NV004', name: 'Thanh Mai (mẫu)', username: 'demo.thanhmai', role: 'employee', active: false, revision: 1,
-        jobTitle: 'Nhân viên hỗ trợ (hồ sơ mẫu)', phone: '0000 000 104', payType: 'hourly', baseSalary: 0, hourlyRate: 28000,
+        code: 'DEMO2-NV004', name: 'Thanh Mai', username: 'demo.thanhmai', role: 'employee', active: false, revision: 1,
+        jobTitle: 'Nhân viên hỗ trợ', phone: '0000 000 104', payType: 'hourly', baseSalary: 0, hourlyRate: 28000,
         startDate: dateAt(-30), defaultShift: '14:00 – 20:00'
       }), 'code')) counts.staff++;
     }
@@ -307,7 +269,7 @@
     const manager = shop.staff.find(person => person.role === 'manager' && person.active !== false) || employee;
     const actorFor = index => {
       const person = workers[index % (workers.length || 1)] || employee;
-      return person ? {employeeId: person.code, employeeName: person.name} : {employeeId: 'DEMO-SYSTEM', employeeName: 'Dữ liệu mẫu'};
+      return person ? {employeeId: person.code, employeeName: person.name} : {employeeId: 'DEMO-SYSTEM', employeeName: 'Dữ liệu tĩnh'};
     };
     const products = new Map(shop.products.filter(product => product.active !== false && Number.isSafeInteger(product.price) && product.price > 0).map(product => [product.code, product]));
     const lineFor = (code, preferredSize, qty) => {
@@ -316,21 +278,6 @@
       return size ? {code, name: product.name, size, qty, unitPrice: product.price, lineTotal: qty * product.price} : null;
     };
 
-    const promoExamples = [
-      {id: 'DEMO2-UD004', code: 'DEMO2_UDAI_04', name: 'Chăm sóc khách hàng 3% (mẫu)', value: 3, maxDiscount: 20000, minOrder: 300000, startDate: dateAt(-4), endDate: dateAt(7), tier: 'all'},
-      {id: 'DEMO2-UD005', code: 'DEMO2_UDAI_05', name: 'Tri ân thành viên Vàng (mẫu)', value: 5, maxDiscount: 50000, minOrder: 1000000, startDate: dateAt(15), endDate: dateAt(21), tier: 'Vàng'},
-      {id: 'DEMO2-UD006', code: 'DEMO2_UDAI_06', name: 'Ưu đãi mùa trước (mẫu)', value: 3, maxDiscount: 30000, minOrder: 300000, startDate: businessDay(annualTime(1, 1)), endDate: dateAt(-5), tier: 'all'}
-    ];
-    const addedPromoIds = new Set();
-    for (const example of promoExamples) {
-      if (example.endDate < example.startDate || shop.vouchers.some(row => row.code === example.code && row.id !== example.id)) continue;
-      if (insert(shop.vouchers, mark({...example, type: 'percent', active: true, limit: 200, used: 0}))) {counts.promotions++; addedPromoIds.add(example.id);}
-    }
-    const discountFor = (gross, when, preferredId) => {
-      const day = businessDay(when), promo = shop.vouchers.find(row => row.id === preferredId && row.demoSeed === tag);
-      if (!promo || !promo.active || day < promo.startDate || day > promo.endDate || gross < promo.minOrder) return {discount: 0, promotion: 'none', promotionLabel: 'Không có ưu đãi', voucherId: ''};
-      return {discount: Math.min(gross, promo.maxDiscount || gross, Math.floor(gross * promo.value / 100)), promotion: 'automatic', promotionLabel: promo.name, voucherId: promo.id};
-    };
     const saleSpecs = [
       ['DEMO2-HD004', annualTime(1, 15), 'early', 'DEMO2-KH005', [['AP001', 'M', 5], ['QA001', 'L', 2]]],
       ['DEMO2-HD005', annualTime(3, 15), 'early', 'DEMO-KH002', [['AK001', 'L', 2], ['QJ001', 'M', 2]]],
@@ -351,16 +298,16 @@
       ['DEMO2-HD020', todayTime(.85), 'recent', 'DEMO2-KH010', [['AK001', 'L', 1]]]
     ];
     const plannedSales = saleSpecs.flatMap(([id, when, batch, customerId, specs], index) => {
-      const customer = shop.customers.find(row => row.id === customerId && row.active !== false);
+      const customer = shop.customers.find(row => row.id === customerId);
       if (!customer || ![TAG, tag].includes(customer.demoSeed) || when > now || shop.movements.some(row => row.id === id)) return [];
       const items = specs.map(spec => lineFor(...spec));
       if (items.some(item => !item)) return [];
       return [{id, when, batch, customer, items, actor: actorFor(index), method: index % 2 ? 'Chuyển khoản' : 'Tiền mặt'}];
     });
     const dispatchSpecs = [
-      ['DEMO2-XK002', timeAt(-9, 11), 'mid', [['DEMO-GD001', '42', 2], ['DEMO-MU001', 'Một cỡ', 3]], 'Điều chuyển về kho tổng (mẫu)'],
-      ['DEMO2-XK003', timeAt(-4, 11), 'recent', [['QJ001', 'XXL', 2], ['AK001', 'XXL', 1]], 'Trả hàng chưa phù hợp mùa (mẫu)'],
-      ['DEMO2-XK004', timeAt(-1, 11), 'recent', [['DEMO-DL001', 'Một cỡ', 2], ['DEMO-TB002', 'Một cỡ', 1]], 'Điều chuyển theo yêu cầu (mẫu)']
+      ['DEMO2-XK002', timeAt(-9, 11), 'mid', [['DEMO-GD001', '42', 2], ['DEMO-MU001', 'Một cỡ', 3]], 'Trả hàng cho nhà cung cấp'],
+      ['DEMO2-XK003', timeAt(-4, 11), 'recent', [['QJ001', 'XXL', 2], ['AK001', 'XXL', 1]], 'Trả hàng chưa phù hợp mùa'],
+      ['DEMO2-XK004', timeAt(-1, 11), 'recent', [['DEMO-DL001', 'Một cỡ', 2], ['DEMO-TB002', 'Một cỡ', 1]], 'Điều chuyển theo yêu cầu']
     ];
     const plannedDispatches = dispatchSpecs.flatMap(([id, when, batch, specs, reason], index) => {
       if (shop.movements.some(row => row.id === id)) return [];
@@ -368,8 +315,8 @@
       return items.some(item => !item) ? [] : [{id, when, batch, items, reason, actor: actorFor(index)}];
     });
     const plannedExchanges = [
-      {id: 'DEMO2-DT001', invoiceId: 'DEMO2-HD013', when: timeAt(-1, 16), condition: 'resellable', replacement: ['AP001', 'L', 1], reason: 'Tình huống mẫu: đổi áo phông còn nguyên tem sang áo polo; hàng nhận lại đủ điều kiện bán.'},
-      {id: 'DEMO2-DT002', invoiceId: 'DEMO2-HD014', when: timeAt(-1, 17), condition: 'resellable', replacement: ['AP001', 'XL', 1], reason: 'Tình huống mẫu: đổi kích cỡ áo polo, hàng còn đủ điều kiện bán lại.'}
+      {id: 'DEMO2-DT001', invoiceId: 'DEMO2-HD013', when: timeAt(-1, 16), condition: 'resellable', replacement: ['AP001', 'L', 1], reason: 'Đổi áo phông còn nguyên tem sang áo polo. Hàng nhận lại đủ điều kiện bán.'},
+      {id: 'DEMO2-DT002', invoiceId: 'DEMO2-HD014', when: timeAt(-1, 17), condition: 'resellable', replacement: ['AP001', 'XL', 1], reason: 'Đổi kích cỡ áo polo. Hàng còn đủ điều kiện bán lại.'}
     ].flatMap(example => {
       if (shop.movements.some(row => row.id === example.id) || shop.returns.some(row => row.id === example.id)) return [];
       const invoice = plannedSales.find(row => row.id === example.invoiceId);
@@ -391,7 +338,7 @@
       {key: 'recent', id: 'DEMO2-PN004', supplierId: 'DEMO2-NCC003'}
     ];
     const funded = new Set();
-    const addAudit = (doc, action) => insert(shop.audit, mark({id: 'DEMO2-AUD-' + doc.id, when: doc.when, employeeId: doc.employeeId, employeeName: doc.employeeName, action: action + ' (mẫu)', reference: doc.id}));
+    const addAudit = (doc, action) => insert(shop.audit, mark({id: 'DEMO2-AUD-' + doc.id, when: doc.when, employeeId: doc.employeeId, employeeName: doc.employeeName, action, reference: doc.id}));
     for (const [index, batch] of batches.entries()) {
       const outgoing = [...plannedSales, ...plannedDispatches, ...plannedExchanges].filter(row => row.batch === batch.key);
       if (!outgoing.length || shop.movements.some(row => row.id === batch.id)) continue;
@@ -409,32 +356,21 @@
         const qty = item.qty + 3, unitPrice = Math.max(1, Math.floor(item.unitPrice * .58 / 1000) * 1000);
         return {code: item.code, name: item.name, size: item.size, qty, unitPrice, lineTotal: qty * unitPrice, sellingPrice: item.unitPrice};
       });
-      const doc = mark({id: batch.id, type: 'receipt', when: Math.min(...outgoing.map(row => row.when)) - DAY, ...actorFor(index), supplierId: supplierRow.id, supplierName: supplierRow.name, items, total: items.reduce((sum, item) => sum + item.lineTotal, 0), costStatus: 'complete', note: 'Phiếu nhập bổ sung mẫu; số lượng và giá nhập hoàn toàn giả lập.'});
+      const doc = mark({id: batch.id, type: 'receipt', when: Math.min(...outgoing.map(row => row.when)) - DAY, ...actorFor(index), supplierId: supplierRow.id, supplierName: supplierRow.name, items, total: items.reduce((sum, item) => sum + item.lineTotal, 0), costStatus: 'complete', note: 'Nhập bổ sung hàng.'});
       if (insert(shop.movements, doc)) {funded.add(batch.key); counts.receipts++; addAudit(doc, 'Nhập hàng');}
     }
-    const allocateDiscount = (items, discount) => {
-      const gross = items.reduce((sum, item) => sum + item.lineTotal, 0);
-      let remaining = discount;
-      const result = items.map(item => {const share = Math.floor(discount * item.lineTotal / gross); remaining -= share; return {...item, discount: share, paidTotal: item.lineTotal - share, warehouseQty: item.qty, counterQty: 0};});
-      for (let index = 0; remaining > 0; index = (index + 1) % result.length) if (result[index].paidTotal > 0) {result[index].discount++; result[index].paidTotal--; remaining--;}
-      return result;
-    };
     for (const plan of plannedSales.sort((a, b) => a.when - b.when)) {
       if (!funded.has(plan.batch)) continue;
-      const gross = plan.items.reduce((sum, item) => sum + item.lineTotal, 0);
-      const promo = discountFor(gross, plan.when, plan.batch === 'recent' ? 'DEMO2-UD004' : 'DEMO2-UD006');
-      const items = allocateDiscount(plan.items, promo.discount), total = gross - promo.discount;
+      const items = plan.items.map(item => ({...item, paidTotal: item.lineTotal}));
+      const total = items.reduce((sum, item) => sum + item.lineTotal, 0);
       const cashReceived = Math.ceil(total / 50000) * 50000;
-      const doc = mark({id: plan.id, type: 'sale', when: plan.when, ...plan.actor, items, gross, total, ...promo, customerId: plan.customer.id, customerName: plan.customer.name, method: plan.method, paymentStatus: 'confirmed', note: 'Hóa đơn mẫu bổ sung; không phải giao dịch thực tế.', ...(plan.method === 'Tiền mặt' ? {cashReceived, change: cashReceived - total} : {transferConfirmed: true})});
-      if (insert(shop.movements, doc)) {
-        counts.sales++; addAudit(doc, 'Bán hàng');
-        if (addedPromoIds.has(promo.voucherId)) shop.vouchers.find(row => row.id === promo.voucherId).used++;
-      }
+      const doc = mark({id: plan.id, type: 'sale', when: plan.when, ...plan.actor, items, total, customerId: plan.customer.id, customerName: plan.customer.name, method: plan.method, paymentStatus: 'confirmed', note: 'Giao dịch từ bộ dữ liệu tĩnh.', ...(plan.method === 'Tiền mặt' ? {cashReceived, change: cashReceived - total} : {transferConfirmed: true})});
+      if (insert(shop.movements, doc)) {counts.sales++; addAudit(doc, 'Bán hàng');}
     }
     for (const plan of plannedDispatches) {
       if (!funded.has(plan.batch)) continue;
-      const destination = shop.suppliers.find(row => row.id === 'NCC001')?.name || 'Kho tổng (mẫu)';
-      const doc = mark({id: plan.id, type: 'dispatch', when: plan.when, ...plan.actor, destination, reason: plan.reason, note: 'Phiếu xuất mẫu; hàng rời khỏi cửa hàng.', total: 0, items: plan.items.map(item => ({code: item.code, name: item.name, size: item.size, qty: item.qty, unitPrice: 0, lineTotal: 0, warehouseQty: item.qty, counterQty: 0}))});
+      const destination = shop.suppliers.find(row => row.id === 'NCC001')?.name || 'Nhà cung cấp';
+      const doc = mark({id: plan.id, type: 'dispatch', when: plan.when, ...plan.actor, destination, reason: plan.reason, note: 'Xuất hàng khỏi cửa hàng.', total: 0, items: plan.items.map(item => ({code: item.code, name: item.name, size: item.size, qty: item.qty, unitPrice: 0, lineTotal: 0}))});
       if (insert(shop.movements, doc)) {counts.dispatches++; addAudit(doc, 'Xuất hàng');}
     }
     for (const plan of plannedExchanges) {
@@ -443,7 +379,7 @@
       if (!invoice || shop.returns.some(row => row.invoiceId === invoice.id)) continue;
       const original = invoice.items[0];
       const returnedItems = [{code: original.code, name: original.name, size: original.size, qty: original.qty, unitPrice: original.unitPrice, paidTotal: original.paidTotal}];
-      const replacements = plan.items.map(item => ({...item, warehouseQty: item.qty, counterQty: 0}));
+      const replacements = plan.items;
       const credit = original.paidTotal, replacementTotal = replacements.reduce((sum, item) => sum + item.lineTotal, 0), extraPaid = replacementTotal - credit;
       if (extraPaid < 0 || businessDay(plan.when) < businessDay(invoice.when) || plan.when - invoice.when > 30 * DAY) continue;
       const doc = mark({id: plan.id, type: 'exchange', when: plan.when, ...plan.actor, exchangeOf: invoice.id, customerId: invoice.customerId, customerName: invoice.customerName, condition: plan.condition, reason: plan.reason, note: plan.reason, items: replacements, returnedItems, credit, gross: replacementTotal, discount: 0, total: extraPaid, extraPaid, method: 'Tiền mặt', paymentStatus: 'confirmed', cashReceived: extraPaid, change: 0});
@@ -459,28 +395,394 @@
         const date = dateAt(offset);
         if (shop.shifts.some(shift => shift.employeeId === code && shift.date === date)) continue;
         const start = code === 'NV003' ? '14:00' : '08:00', end = code === 'NV003' ? '20:00' : code === 'NV001' ? '16:00' : '14:00';
-        if (insert(shop.shifts, mark({id: 'DEMO2-CA-' + code + '-' + date, employeeId: code, date, start, end, status: offset < 0 ? 'completed' : 'planned', note: 'Ca làm mẫu trong lịch 7 ngày; không phải dữ liệu chấm công thực tế.'}))) counts.shifts++;
+        if (insert(shop.shifts, mark({id: 'DEMO2-CA-' + code + '-' + date, employeeId: code, date, start, end, status: offset < 0 ? 'completed' : 'planned', note: 'Ca dự kiến trong lịch 7 ngày.'}))) counts.shifts++;
       }
     }
     for (const [code, reason, note, action] of [
-      ['AK001', 'Hết mùa', 'Đánh giá mẫu: một số kích cỡ áo khoác cần theo dõi theo mùa.', 'Kiểm tra nhu cầu trước đợt tiếp hàng sau.'],
-      ['QJ001', 'Lệch size / màu', 'Đánh giá mẫu: đối chiếu số lượng từng kích cỡ trước khi đặt thêm.', 'Ưu tiên bổ sung kích cỡ khách hỏi nhiều.']
+      ['AK001', 'Hết mùa', 'Một số kích cỡ áo khoác cần theo dõi theo mùa.', 'Kiểm tra nhu cầu trước đợt tiếp hàng sau.'],
+      ['QJ001', 'Lệch size / màu', 'Đối chiếu số lượng từng kích cỡ trước khi đặt thêm.', 'Ưu tiên bổ sung kích cỡ khách hỏi nhiều.']
     ]) {
       if (!products.has(code) || shop.stockNotes[code]) continue;
-      shop.stockNotes[code] = mark({reason, note, action, threshold: 5, updatedAt: timeAt(-1, 16), updatedBy: manager?.name || 'Dữ liệu mẫu'}); counts.stockNotes++;
+      shop.stockNotes[code] = mark({reason, note, action, threshold: 5, updatedAt: timeAt(-1, 16), updatedBy: manager?.name || 'Dữ liệu tĩnh'}); counts.stockNotes++;
     }
-    shop.staticDemoVersion = VERSION;
+    shop.staticDemoVersion = 2;
     shop.staticDemoExpandedOn = anchor;
     shop.staticDemoV2Added = counts;
     return true;
   }
 
-  function apply(shop) {
-    if (!shop || typeof shop !== 'object' || Number(shop.staticDemoVersion) >= VERSION) return false;
-    const first = applyV1(shop);
-    const second = applyV2(shop);
-    return first || second;
+  function applyV3(shop) {
+    if (Number(shop.staticDemoVersion) < 2 || Number(shop.staticDemoVersion) >= 3) return false;
+    const workers = ['NV001', 'NV002', 'NV003'].map(code => shop.staff.find(person => person.code === code && person.active !== false)).filter(Boolean);
+    if (!workers.length) return false;
+    // Không ghi đè dữ liệu đã có hoặc dùng tồn kho của sản phẩm người dùng tạo.
+    for (const records of [shop.products, shop.movements, shop.customers, shop.suppliers, shop.returns, shop.audit]) {
+      if (records.some(row => row.demoSeed === 'atino-static-v3' || String(row.code || row.id || '').startsWith('DEMO3-'))) return false;
+    }
+    const mark = fields => ({...fields, demoSeed:'atino-static-v3'});
+    const now = Date.now(), anchor = businessDay(now);
+    const midnight = Date.parse(anchor + 'T00:00:00+07:00');
+    const todayTime = fraction => midnight + Math.floor(Math.max(0, now - midnight - 1000) * fraction);
+    const actor = person => ({employeeId:person.code, employeeName:person.name});
+    const manager = workers.find(person => person.role === 'manager') || workers[0];
+    const definitions = [
+      ['AT001','Áo phông basic','Áo phông',159000,['S','M','L','XL'],[0,1,8,2]],
+      ['AP001','Áo polo phối cổ','Áo polo',249000,['S','M','L','XL'],[1,2,6,2]],
+      ['SM001','Áo sơ mi Oxford','Áo sơ mi',329000,['S','M','L','XL'],[5,8,6,4]],
+      ['AK001','Áo khoác kaki','Áo khoác',449000,['S','M','L','XL'],[3,4,4,3]],
+      ['QS001','Quần short kaki','Quần short',229000,['28','29','30','31'],[2,1,7,0]],
+      ['TB001','Túi đeo chéo mini','Túi / Balo',359000,['Một cỡ'],[0]],
+      ['DL001','Dây lưng bản nhỏ','Dây lưng',199000,['Một cỡ'],[1]]
+    ];
+    const products = definitions.map(([suffix,name,category,price,sizes]) => mark({
+      code:'DEMO3-'+suffix,name,category,price,sizes,active:true,image:'',
+      unit:'sản phẩm',description:''
+    }));
+    const productMap = new Map(products.map(product => [product.code,product]));
+    const line = (suffix,size,qty) => {
+      const product = productMap.get('DEMO3-'+suffix);
+      return {code:product.code,name:product.name,size,qty,unitPrice:product.price,lineTotal:qty*product.price,paidTotal:qty*product.price};
+    };
+    const customers = ['Lê Minh Tuấn','Trần Ngọc Linh','Phạm Thu Hà'].map((name,index) => mark({
+      id:'DEMO3-KH00'+(index+1),name,phone:'0000 000 50'+(index+1),
+      address:'Hà Nội',email:'khach-mau-'+(index+1)+'@example.invalid',birthday:'1998-06-15'
+    }));
+    const supplier = mark({id:'DEMO3-NCC001',name:'Xưởng may An Phú',contact:'Đầu mối minh họa',phone:'0000 000 601',
+      address:'Hà Nội',email:'xuong-mau@example.invalid',active:true,note:'Nhà cung cấp giả lập để xem thử nghiệp vụ.'});
+    const movements = [], returns = [], audit = [];
+    const add = (doc, action) => {
+      movements.push(mark(doc));
+      audit.push(mark({id:'DEMO3-AUD-'+doc.id,when:doc.when,...actor({code:doc.employeeId,name:doc.employeeName}),action,reference:doc.id}));
+    };
+    for (let personIndex = 0; personIndex < workers.length; personIndex++) {
+      const person = workers[personIndex], customer = customers[personIndex];
+      for (let index = 0; index < 6; index++) {
+        const saleLines = [
+          [line('AT001','S',2),line('AP001','M',1)], [line('AP001','M',2)],
+          [line('QS001','30',2),line('TB001','Một cỡ',1)], [line('DL001','Một cỡ',1)],
+          [line('AT001','S',1)], [line('AP001','S',1)]
+        ][index];
+        const when = index < 4 ? midnight - (6-index)*DAY + (10+personIndex)*3600000 : todayTime(.1+personIndex*.1+(index-4)*.03);
+        const id = 'DEMO3-HD'+String(personIndex*6+index+1).padStart(3,'0');
+        const total = saleLines.reduce((sum,item) => sum+item.lineTotal,0);
+        const method = (personIndex+index)%2 ? 'Chuyển khoản' : 'Tiền mặt';
+        const cashReceived = Math.ceil(total/50000)*50000;
+        const payment = method === 'Tiền mặt' ? {cashReceived,change:cashReceived-total} : {transferConfirmed:true};
+        add({id,type:'sale',when,...actor(person),customerId:customer.id,customerName:customer.name,items:saleLines,total,method,paymentStatus:'confirmed',...payment,note:'Hóa đơn minh họa; không phải giao dịch thực tế.'},'Bán hàng');
+        if (index < 4) continue;
+        const replacement = index === 4 ? line('AT001','M',1) : line('SM001','M',1);
+        const original = saleLines[0], credit = original.paidTotal;
+        const replacementTotal = replacement.lineTotal, extraPaid = replacementTotal-credit;
+        const exchangeId = 'DEMO3-DT'+String(personIndex*2+index-3).padStart(3,'0');
+        const exchangeTime = todayTime(.65+personIndex*.08+(index-4)*.03);
+        const reason = index === 4 ? 'Đổi kích cỡ' : 'Đổi sang sản phẩm giá cao hơn';
+        const exchangePayment = method === 'Tiền mặt' ? {cashReceived:extraPaid,change:0} : {transferConfirmed:true};
+        add({id:exchangeId,type:'exchange',when:exchangeTime,...actor(person),exchangeOf:id,customerId:customer.id,customerName:customer.name,
+          condition:'resellable',reason,note:reason,items:[replacement],returnedItems:[{...original}],credit,replacementTotal,
+          gross:replacementTotal,total:extraPaid,extraPaid,method,paymentStatus:'confirmed',...exchangePayment},'Đổi hàng');
+        returns.push(mark({id:exchangeId,invoiceId:id,when:exchangeTime,...actor(person),condition:'resellable',reason,
+          items:[{...original}],replacements:[{...replacement}],credit,replacementTotal,extraPaid,method}));
+      }
+      const item = line('QS001','31',1);
+      add({id:'DEMO3-PX00'+(personIndex+1),type:'dispatch',when:todayTime(.45+personIndex*.04),...actor(person),
+        items:[{...item,unitPrice:0,lineTotal:0,paidTotal:0}],total:0,destination:supplier.name,
+        reason:'Trả hàng nhà cung cấp',note:'Phiếu xuất minh họa; hàng rời khỏi cửa hàng.'},'Xuất hàng');
+    }
+    // Nhập đủ cho mọi lần xuất trước khi cộng hàng khách đổi trả, tránh âm tồn giữa các giao dịch.
+    const outgoingQty = new Map();
+    const adjust = (item,qty) => {
+      const key = item.code+'|'+item.size;
+      outgoingQty.set(key,(outgoingQty.get(key)||0)+qty);
+    };
+    for (const doc of movements) {
+      for (const item of doc.items) adjust(item,item.qty);
+    }
+    const recentItems = [], agingItems = [];
+    for (const [suffix,,,price,sizes,remaining] of definitions) {
+      for (let index = 0; index < sizes.length; index++) {
+        const qty = (outgoingQty.get('DEMO3-'+suffix+'|'+sizes[index])||0)+remaining[index];
+        if (qty <= 0) continue;
+        const item = line(suffix,sizes[index],qty);
+        item.sellingPrice = price; item.unitPrice = Math.floor(price*.6/1000)*1000;
+        item.lineTotal = qty*item.unitPrice; delete item.paidTotal;
+        (suffix === 'AK001' ? agingItems : recentItems).push(item);
+      }
+    }
+    for (const [index,items] of [recentItems,agingItems].entries()) {
+      add({id:'DEMO3-PN00'+(index+1),type:'receipt',when:midnight-(index===0?9:55)*DAY,...actor(manager),
+        supplierId:supplier.id,supplierName:supplier.name,items,total:items.reduce((sum,item)=>sum+item.lineTotal,0),costStatus:'complete',
+        note:index===0?'Phiếu nhập cấp đủ hàng cho các chứng từ minh họa.':'Lô hàng đã 55 ngày chưa bán.'},'Nhập hàng');
+    }
+    shop.products.push(...products); shop.customers.push(...customers); shop.suppliers.push(supplier);
+    shop.movements.push(...movements.sort((a,b)=>a.when-b.when)); shop.returns.push(...returns);
+    shop.audit.unshift(...audit.sort((a,b)=>b.when-a.when));
+    shop.stockNotes['DEMO3-AK001'] = mark({reason:'Bán chậm',note:'Lô hàng chưa bán sau 55 ngày.',action:'Kiểm tra nhu cầu khách hàng.',threshold:2,updatedAt:now,updatedBy:manager.name});
+    for (const person of workers) {
+      if (person.name === staffNames[person.code] && missing(person.profile?.address)) {
+        person.profile = {...person.profile,address:'Hà Nội'};
+        person.demoProfileFields = [...new Set([...(person.demoProfileFields||[]),'address'])];
+      }
+    }
+    shop.staticDemoVersion = 3; shop.staticDemoOverviewSeededOn = anchor;
+    shop.staticDemoV3Added = {products:products.length,customers:customers.length,suppliers:1,sales:workers.length*6,exchanges:returns.length,receipts:2,dispatches:workers.length};
+    return true;
   }
 
-  window.AtinoDemoSeed = Object.freeze({apply});
+  function applyV4(shop) {
+    if (Number(shop.staticDemoVersion) !== 3) return false;
+    // Chỉ điền thông tin minh họa cho chứng từ do bộ dữ liệu mẫu tạo.
+    const tags = [TAG, 'atino-static-v2', 'atino-static-v3'];
+    const sampleStaff = shop.staff.filter(person => Object.hasOwn(staffNames, person.code));
+    for (const doc of shop.movements) {
+      if (!tags.includes(doc.demoSeed) || !['sale','exchange'].includes(doc.type)) continue;
+      const issuer = sampleStaff.find(person => person.code === doc.employeeId);
+      if (!issuer) continue;
+      if (!doc.cashierId && !doc.cashierName) {
+        doc.cashierId = issuer.code;
+        doc.cashierName = doc.employeeName || issuer.name;
+      }
+      if (doc.type === 'sale' && !doc.sellerId && !doc.sellerName) {
+        doc.sellerId = issuer.code;
+        doc.sellerName = doc.employeeName || issuer.name;
+      }
+    }
+    shop.staticDemoVersion = 4;
+    return true;
+  }
+
+  const oldDisplayText = new Map([
+    ['Đầu mối cung cấp hàng và thông tin liên hệ mẫu.', 'Đầu mối cung cấp hàng.'],
+    ['Địa chỉ nhà cung cấp mẫu', ''],
+    ['Dữ liệu mẫu', 'Dữ liệu tĩnh'],
+    ['Dữ liệu mẫu: tên và giá bán tham khảo từ Atino; số lượng, giá nhập và giao dịch là giả lập.', ''],
+    ['Sản phẩm minh họa. Giá, số lượng trong cửa hàng và chứng từ đều là dữ liệu mẫu.', ''],
+    ['Mẫu minh họa.', ''],
+    ['Hà Nội — dữ liệu mẫu', 'Hà Nội'],
+    ['Hà Nội — địa chỉ mẫu', 'Hà Nội'],
+    ['Phiếu nhập mẫu — số lượng và giá nhập giả lập để minh họa nghiệp vụ.', 'Nhập hàng đầu kỳ.'],
+    ['Hóa đơn mẫu — giao dịch giả lập.', 'Giao dịch từ bộ dữ liệu tĩnh.'],
+    ['Phiếu xuất mẫu trả 2 mũ cho nhà cung cấp.', 'Trả 2 mũ cho nhà cung cấp.'],
+    ['Đánh giá mẫu: chưa phát sinh bán hàng trong kỳ minh họa.', 'Chưa phát sinh bán hàng trong kỳ.'],
+    ['Nhân viên hỗ trợ (hồ sơ mẫu)', 'Nhân viên hỗ trợ'],
+    ['Tình huống mẫu: đổi áo phông còn nguyên tem sang áo polo; hàng nhận lại đủ điều kiện bán.', 'Đổi áo phông còn nguyên tem sang áo polo. Hàng nhận lại đủ điều kiện bán.'],
+    ['Tình huống mẫu: đổi kích cỡ áo polo, hàng còn đủ điều kiện bán lại.', 'Đổi kích cỡ áo polo. Hàng còn đủ điều kiện bán lại.'],
+    ['Phiếu nhập bổ sung mẫu; số lượng và giá nhập hoàn toàn giả lập.', 'Nhập bổ sung hàng.'],
+    ['Hóa đơn mẫu bổ sung; không phải giao dịch thực tế.', 'Giao dịch từ bộ dữ liệu tĩnh.'],
+    ['Phiếu xuất mẫu; hàng rời khỏi cửa hàng.', 'Xuất hàng khỏi cửa hàng.'],
+    ['Ca làm mẫu trong lịch 7 ngày; không phải dữ liệu chấm công thực tế.', 'Ca dự kiến trong lịch 7 ngày.'],
+    ['Đánh giá mẫu: một số kích cỡ áo khoác cần theo dõi theo mùa.', 'Một số kích cỡ áo khoác cần theo dõi theo mùa.'],
+    ['Đánh giá mẫu: đối chiếu số lượng từng kích cỡ trước khi đặt thêm.', 'Đối chiếu số lượng từng kích cỡ trước khi đặt thêm.'],
+    ['Lô hàng mẫu đã 55 ngày chưa bán.', 'Lô hàng đã 55 ngày chưa bán.'],
+    ['Lô hàng mẫu chưa bán sau 55 ngày.', 'Lô hàng chưa bán sau 55 ngày.'],
+    ['Đổi mẫu / màu', 'Đổi kiểu dáng / màu']
+  ]);
+
+  function applyV5(shop) {
+    if (shop.staticDemoVersion !== 4) return false;
+    const clean = (record, fields) => {
+      if (!record) return;
+      for (const field of fields) {
+        const text = record[field];
+        if (typeof text !== 'string') continue;
+        if (oldDisplayText.has(text)) record[field] = oldDisplayText.get(text);
+        else if (text.endsWith(' (mẫu)')) record[field] = text.slice(0, -6);
+      }
+    };
+    for (const product of shop.products || []) clean(product, ['name','description']);
+    for (const person of [...(shop.staff || []), ...(shop.customers || []), ...(shop.suppliers || [])]) {
+      clean(person, ['name','address','contact','jobTitle','note']);
+      clean(person.profile, ['address']);
+    }
+    for (const doc of [...(shop.movements || []), ...(shop.returns || [])]) {
+      if (doc.id === 'PN0001' && doc.note === 'Dữ liệu mẫu') doc.note = 'Số lượng đầu kỳ';
+      clean(doc, ['customerName','supplierName','employeeName','sellerName','cashierName','destination','reason','note']);
+      for (const lines of [doc.items, doc.returnedItems, doc.replacements]) {
+        for (const line of lines || []) clean(line, ['name']);
+      }
+    }
+    for (const row of [...(shop.audit || []), ...(shop.shifts || []), ...Object.values(shop.stockNotes || {})]) {
+      clean(row, ['action','detail','employeeName','note','updatedBy']);
+    }
+    shop.staticDemoVersion = 5;
+    return true;
+  }
+
+  function upgradeProductCodes(shop) {
+    // Gom cả dòng chứng từ để giữ riêng từng mã kể cả khi sản phẩm đã rời danh mục.
+    const rows = [...(shop.products || []), ...(shop.balances || [])];
+    const documents = [...(shop.movements || []), ...(shop.returns || [])];
+    for (const doc of documents) {
+      for (const lines of [doc.items, doc.returnedItems, doc.replacements]) {
+        for (const line of lines || []) rows.push(line);
+      }
+    }
+    const notes = shop.stockNotes || {};
+    const categories = new Map((shop.products || []).map(p => [p.code, p.category]));
+    const allCodes = new Set([...rows.map(row => row.code), ...Object.keys(notes)]);
+    const productAudit = (shop.audit || []).filter(row =>
+      ['Cập nhật sản phẩm','Đánh giá hàng hóa','Cập nhật giá bán khi nhập hàng'].includes(row.action));
+    for (const entry of productAudit) allCodes.add(entry.reference);
+
+    const used = new Set(), legacy = [];
+    for (const code of allCodes) {
+      if (typeof code !== 'string' || !code) continue;
+      if (/demo/i.test(code)) legacy.push(code);
+      else used.add(code.toUpperCase());
+    }
+    if (!legacy.length) return false;
+
+    const mapping = new Map(), pending = new Map();
+    for (const oldCode of legacy.sort()) {
+      const bare = oldCode.toUpperCase().replace(/DEMO\d*[-_]?/g, '');
+      const match = /^([A-Z]+)(\d+)$/.exec(bare);
+      const prefix = window.AtinoCatalog?.prefixes[categories.get(oldCode)] || match?.[1] || 'SP';
+      const preferred = match && prefix + match[2].padStart(3, '0');
+      if (preferred && !used.has(preferred)) {
+        mapping.set(oldCode, preferred);
+        used.add(preferred);
+      } else pending.set(oldCode, prefix);
+    }
+    const sequence = new Map();
+    for (const [oldCode, prefix] of pending) {
+      let n = sequence.get(prefix) || 1;
+      let code = prefix + String(n).padStart(3, '0');
+      while (used.has(code)) code = prefix + String(++n).padStart(3, '0');
+      sequence.set(prefix, n + 1);
+      mapping.set(oldCode, code);
+      used.add(code);
+    }
+
+    for (const row of rows) if (mapping.has(row.code)) row.code = mapping.get(row.code);
+    for (const [oldCode, code] of mapping) {
+      if (Object.hasOwn(notes, oldCode)) {
+        notes[code] = notes[oldCode];
+        delete notes[oldCode];
+      }
+    }
+    for (const entry of productAudit) {
+      if (mapping.has(entry.reference)) entry.reference = mapping.get(entry.reference);
+    }
+    // Cho phép gửi lại cùng một lần lưu từ cả trang cũ và trang đã tải mã mới.
+    for (const doc of shop.movements || []) {
+      if (!doc.signature) continue;
+      let request;
+      try { request = JSON.parse(doc.signature); } catch { continue; }
+      let changed = false;
+      for (const key of ['lines','items','replacements','newProducts']) {
+        if (!Array.isArray(request?.[key])) continue;
+        for (const line of request[key]) {
+          if (!mapping.has(line?.code)) continue;
+          line.code = mapping.get(line.code);
+          changed = true;
+        }
+      }
+      if (changed) doc.currentCodeSignature = JSON.stringify(request);
+    }
+    return true;
+  }
+
+  function normalizeRecordCodes(shop) {
+    const records = ['movements','returns','customers','staff','shifts','audit','products'].flatMap(k=>shop[k]||[]);
+    const used = new Set(records.flatMap(r=>[r.id,r.code]).filter(Boolean));
+    const mapping = new Map();
+    for(const row of records) for(const old of [row.id,row.code]) {
+      if(!/^DEMO\d*-/i.test(old||'') || mapping.has(old)) continue;
+      const stripped=old.replace(/DEMO\d*-/gi,'');
+      const prefix=(stripped.match(/^[A-Z]+/)||['CT'])[0];
+      const digits=stripped.match(/(\d+)$/);
+      let seq=digits?Number(digits[1]):1;
+      let code;
+      do {code=prefix+String(seq++).padStart(4,'0');} while(used.has(code));
+      mapping.set(old,code);used.add(code);
+    }
+    function update(record) {
+      if(!record || typeof record!=='object')return;
+      for(const [key,value] of Object.entries(record)){
+        if(typeof value==='object')update(value);
+        else if(typeof value==='string'){
+          if(mapping.has(value)) record[key]=mapping.get(value);
+          else if(['note','detail','description','name','address','contact','jobTitle','employeeName','customerName','sellerName','cashierName','reference'].includes(key)){
+            let clean=value.replace(/DEMO\d*-[A-Z0-9-]+/gi,id=>mapping.get(id)||id.replace(/DEMO\d*-/gi,''));
+            record[key]=clean.replace(/\s*\((?:mẫu|demo)\)/gi,'').replace(/(^|\s)(?:mẫu|demo)(?=\s|$)/gi,'$1').trim();
+          }
+        }
+      }
+    }
+    for(const row of records)update(row);
+    for(const row of shop.staff||[])if(row.username==='demo.thanhmai' && !shop.staff.some(s=>s.username==='thanhmai'))row.username='thanhmai';
+  }
+
+  function normalizePrimarySupplier(shop) {
+    const suppliers = shop.suppliers || (shop.suppliers = []);
+    const source = suppliers.find(row => row.id === 'NCC001') || suppliers[0];
+    const supplier = source || {id:'NCC001'};
+    if (!source) suppliers.push(supplier);
+    let changed = false;
+    for (const doc of shop.movements || []) {
+      if(doc.type==='dispatch' && (doc.demoSeed || ['Xưởng may An Phú','Kho tổng Atino','Nguồn hàng Atino'].includes(doc.destination))) {
+        const destination='Kho tổng — Công ty TNHH Thời Trang Minh AM';
+        if(doc.destination!==destination){doc.destination=destination;changed=true;}
+      }
+      if (doc.type !== 'receipt') continue;
+      if (doc.supplierId !== 'NCC001' || doc.supplierName !== 'Kho tổng — Công ty TNHH Thời Trang Minh AM') changed = true;
+      doc.supplierId = 'NCC001';
+      doc.supplierName = 'Kho tổng — Công ty TNHH Thời Trang Minh AM';
+    }
+    if (suppliers.length !== 1 || supplier.id !== 'NCC001' || supplier.name !== 'Kho tổng — Công ty TNHH Thời Trang Minh AM') {
+      changed = true;
+      suppliers.splice(0,suppliers.length,supplier);
+    }
+    const defaults = {
+      id:'NCC001',name:'Kho tổng — Công ty TNHH Thời Trang Minh AM',contact:'Kho tổng',
+      phone:'0359638789',email:'',address:'Thôn Hạnh Đàn, Xã Ô Diên, Thành phố Hà Nội, Việt Nam',
+      note:'Đầu mối nhập hàng duy nhất của cửa hàng.',active:true
+    };
+    for (const [key,value] of Object.entries(defaults)) {
+      const outdatedPhone = key === 'phone' && String(supplier[key] || '').startsWith('0000 000 ');
+      const outdatedEmail = key === 'email' && String(supplier[key] || '').endsWith('.example.invalid');
+      const outdatedContact = key === 'contact' && String(supplier[key] || '').includes('(mẫu)');
+      const outdatedNote = key === 'note' && /giả lập|minh họa/i.test(String(supplier[key] || ''));
+      const next = ['id','name','active'].includes(key) || !supplier[key] || outdatedPhone || outdatedEmail || outdatedContact || outdatedNote ? value : supplier[key];
+      if (supplier[key] !== next) {supplier[key] = next; changed = true;}
+    }
+    return changed;
+  }
+
+  function apply(shop) {
+    if (!shop || typeof shop !== 'object') return false;
+    const legacySupplier = shop.suppliers?.find(row => row.id === 'NCC001' && row.name === 'Kho tổng Atino');
+    if (legacySupplier) legacySupplier.name = 'Nguồn hàng Atino';
+    let renamed = false;
+    if (!shop.demoNamesUpdated) {
+      const people = new Map((shop.staff || []).map(person => [person.code, person]));
+      for (const [code, oldName] of Object.entries(oldStaffNames)) {
+        const person = people.get(code);
+        if (person?.name === oldName) person.name = staffNames[code];
+      }
+      for (const records of [shop.movements || [], shop.returns || [], shop.audit || []]) {
+        for (const doc of records) {
+          const oldName = oldStaffNames[doc.employeeId];
+          if (oldName && doc.employeeName === oldName) {
+            doc.employeeName = people.get(doc.employeeId)?.name || staffNames[doc.employeeId];
+          }
+        }
+      }
+      shop.demoNamesUpdated = true;
+      renamed = true;
+    }
+    if (Number(shop.staticDemoVersion) >= VERSION) return renamed || normalizePrimarySupplier(shop) || Boolean(legacySupplier);
+    const first = applyV1(shop);
+    const second = applyV2(shop);
+    const third = applyV3(shop);
+    const fourth = applyV4(shop);
+    const fifth = applyV5(shop);
+    const codesChanged = upgradeProductCodes(shop);
+    const supplierChanged = normalizePrimarySupplier(shop);
+    normalizeRecordCodes(shop);
+    const finished = Number(shop.staticDemoVersion) < VERSION;
+    if (finished) shop.staticDemoVersion = VERSION;
+    return renamed || first || second || third || fourth || fifth || finished || codesChanged || supplierChanged || Boolean(legacySupplier);
+  }
+
+  window.AtinoDemoSeed = Object.freeze({apply, staffNames});
 })();

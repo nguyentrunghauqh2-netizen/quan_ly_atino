@@ -1,0 +1,69 @@
+.atino-account-link {
+    background: transparent;
+    border: 0;
+    color: #43599c;
+    cursor: pointer;
+    display: block;
+    font-weight: 600;
+    margin: .75rem auto 0;
+    padding: .25rem;
+    text-decoration: underline;
+}
+.atino-account-dialog {
+    background: #fff;
+    border: 1px solid #dfe6f1;
+    border-radius: 16px;
+    box-shadow: 0 20px 70px #17263f30;
+    color: #17263f;
+    max-height: 90vh;
+    padding: 0;
+    width: min(94vw, 620px);
+}
+.atino-account-dialog::backdrop { background: #1523418c; }
+.atino-account-dialog header,
+.atino-account-dialog footer { padding: 16px 24px; }
+.atino-account-dialog header { border-bottom: 1px solid #e6ebf3; }
+.atino-account-dialog h2 { font-size: 1.25rem; font-weight: 650; margin: 0; }
+.atino-account-dialog footer,
+.atino-account-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.atino-account-dialog footer { border-top: 1px solid #e6ebf3; justify-content: flex-end; }
+.atino-account-fields { display: grid; gap: 14px; padding: 20px 24px; }
+.atino-account-grid { display: grid; gap: 12px; grid-template-columns: repeat(2,minmax(0,1fr)); }
+.atino-account-fields label { display: block; min-width: 0; }
+.atino-account-fields :is(input,textarea,select):not([type=checkbox]) { margin-top: 4px; width: 100%; }
+.atino-account-error { background: #fff1f0; border-radius: 8px; color: #9e392e; margin: 0 24px 12px; padding: 10px 12px; }
+.atino-account-summary { align-items: center; display: flex; gap: 12px; }
+.atino-account-summary small { color: #546684; display: block; }
+.atino-profile-avatar {
+    background: #edf1fc;
+    border-radius: 50%;
+    color: #43599c;
+    display: grid;
+    flex: none;
+    font-weight: 700;
+    height: 48px;
+    overflow: hidden;
+    place-items: center;
+    width: 48px;
+}
+#manager-app .atino-avatar-button, #employee-app .atino-avatar-button {
+    border: 0;
+    cursor: pointer;
+    flex: none;
+    overflow: hidden;
+    padding: 0;
+}
+.atino-profile-avatar img, .atino-avatar-button img { height: 100%; object-fit: cover; width: 100%; }
+.atino-recovery-code {
+    background: #edf1fc;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 1rem;
+    overflow-wrap: anywhere;
+    padding: 12px;
+    user-select: all;
+}
+@media (max-width: 540px) {
+    .atino-account-grid { grid-template-columns: minmax(0,1fr); }
+    .atino-account-dialog :is(header,footer,.atino-account-fields) { padding-inline: 16px; }
+}

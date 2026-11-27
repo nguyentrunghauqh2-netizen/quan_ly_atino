@@ -17,16 +17,16 @@ Tài liệu này giúp bạn hiểu rõ **vì sao chọn Flask + MySQL**, **cấ
 Khi thầy/cô hỏi *"Em tổ chức code theo hướng đối tượng như thế nào?"*, bạn trả lời ngắn gọn theo 4 tầng:
 
 1. **Tầng `models/` (Đóng gói thực thể):**
-   - Mỗi đối tượng trong cửa hàng là một Class (`Product`, `Customer`, `Staff`, `SaleInvoice`, `ExchangeTicket`...).
+   - Mỗi đối tượng trong cửa hàng là một Class (`Product`, `ProductSize`, `Customer`, `Staff`, `Shift`, `SaleInvoice`, `ExchangeTicket`...).
    - Tính **Đóng gói (Encapsulation)**: Dữ liệu và hàm kiểm tra tính hợp lệ (`validate()`) nằm chung trong class.
 2. **Tầng `dao/` (Truy xuất CSDL & Kế thừa):**
    - Tạo lớp cha `BaseDAO` chứa các hàm kết nối MySQL và chạy câu SQL dùng chung (`fetch_one`, `fetch_all`, `execute`).
    - Các lớp con như `ProductDAO(BaseDAO)`, `SaleDAO(BaseDAO)` **kế thừa (Inheritance)** từ `BaseDAO` để tái sử dụng code, chỉ viết câu SQL riêng của từng bảng.
 3. **Tầng `services/` (Xử lý nghiệp vụ):**
-   - Gồm các class như `SaleService`, `ExchangeService`, `InventoryService`, `ReportService`.
-   - Đọc dữ liệu từ DAO, tính toán tiền/tồn kho/khuyến mãi, mở MySQL **Transaction** (`commit` khi thành công, `rollback` nếu lỗi) rồi trả kết quả.
+   - Gồm các class như `AuthService`, `InventoryService`, `SaleService`, `ExchangeService`, `CrmService`, `HrmService`, `ReportService`.
+   - Đọc dữ liệu từ DAO, kiểm tra điều kiện nghiệp vụ, mở MySQL **Transaction** (`commit` khi thành công, `rollback` nếu lỗi) rồi trả kết quả.
 4. **Tầng `routes/` (Giao tiếp HTTP / JSON):**
-   - Chỉ nhận JSON từ JavaScript (`fetch`), kiểm tra đăng nhập/vai trò (`manager` hay `employee`), gọi 1 hàm bên `services/` rồi trả JSON về trình duyệt.
+   - Chỉ nhận JSON từ JavaScript (`fetch`), kiểm tra đăng nhập và vai trò (`manager` hay `employee`), gọi 1 hàm bên `services/` rồi trả JSON về trình duyệt.
 
 ---
 
@@ -34,47 +34,36 @@ Khi thầy/cô hỏi *"Em tổ chức code theo hướng đối tượng như th
 
 Hệ thống **không dùng thuật toán phức tạp** mà chỉ dùng các bước logic tuần tự dễ hiểu:
 
-### Thuật toán 1: Tính tổng tồn kho & trừ kho theo 2 lớp (Kho tổng + Quầy bán)
-- **Mục tiêu:** Bán hàng ưu tiên lấy hàng trưng bày ở Quầy bán trước; nếu quầy hết thì lấy tiếp ở Kho tổng.
-- **Các bước:**
-  1. Cộng tồn khả dụng: `ton_kha_dung = counter_qty + warehouse_qty`.
-  2. Nếu `so_luong_mua > ton_kha_dung` -> báo lỗi hết hàng.
-  3. Lấy từ quầy: `tru_quay = min(so_luong_mua, counter_qty)`.
-  4. Phần thiếu lấy từ kho tổng: `tru_kho = so_luong_mua - tru_quay`.
-  5. Cập nhật `counter_qty -= tru_quay` và `warehouse_qty -= tru_kho`.
+### Thuật toán 1: Quản lý tồn kho 1 số chung theo mã và kích cỡ
+- Mỗi `(mã sản phẩm, kích cỡ)` có **một số lượng tồn chung duy nhất** (`stock_qty`) trong cửa hàng.
+- Phiếu nhập kho cộng số lượng vào `stock_qty` của dòng tương ứng.
+- Khi bán hàng hoặc xuất kho ra ngoài, kiểm tra `so_luong_mua <= stock_qty` trong SQL Transaction. Nếu đủ thì trừ `stock_qty` và ghi chứng từ; nếu thiếu thì báo số lượng còn lại.
 
-### Thuật toán 2: Tự động chọn ưu đãi tốt nhất khi bán hàng
-- **Mục tiêu:** Mỗi hóa đơn chỉ áp dụng **1 ưu đãi có lợi nhất** cho khách (Voucher hoặc Sinh nhật).
-- **Các bước:**
-  1. Tính tạm tính: `tong_goc = tổng (số lượng * đơn giá)`.
-  2. Đặt `giam_tot_nhat = 0`.
-  3. Duyệt vòng lặp `for` qua các voucher đang bật, còn hạn, còn lượt, đạt đơn tối thiểu và đạt hạng thành viên:
-     - Nếu giảm `%`: `tien_giam = (tong_goc * gia_tri) // 100` (nếu có trần `max_discount > 0` thì lấy `min(tien_giam, max_discount)`).
-     - Nếu giảm tiền cố định: `tien_giam = min(tong_goc, gia_tri)`.
-     - Nếu `tien_giam > giam_tot_nhat` -> cập nhật `giam_tot_nhat` và lưu lại voucher đó.
-  4. Kiểm tra sinh nhật khách hàng (đúng ngày sinh và chưa dùng trong năm nay) -> tính `giam_sinh_nhat = min(100_000, tong_goc * 10 // 100)`. Nếu lớn hơn `giam_tot_nhat` thì ưu tiên dùng ưu đãi sinh nhật.
+### Thuật toán 2: Tính tiền hóa đơn & Phân biệt Người bán / Thu ngân
+- Nhân số lượng với đơn giá niêm yết của từng dòng (`qty * unit_price`) và cộng thành tổng tiền khách phải trả (`total_amount`).
+- Lưu số tiền thực trả của từng dòng (`paid_total`) cùng hóa đơn để dùng làm căn cứ khi đổi hàng.
+- Lưu cả `seller_code` (người bán để thống kê doanh thu nhân viên) và `cashier_code` (thu ngân thu tiền).
 
-### Thuật toán 3: Phân bổ tiền giảm giá về từng dòng hóa đơn
-- **Tại sao cần?** Nếu hóa đơn 300.000đ được giảm còn 270.000đ rồi sau đó khách quay lại đổi 1 món trong hóa đơn đó, cửa hàng phải hoàn đổi đúng số tiền khách đã **thực trả** cho món đó chứ không tính theo giá gốc 300.000đ.
-- **Cách làm (chia tỷ lệ nguyên):**
-  1. Với mỗi dòng hàng: `phan_giam = (tong_giam * gia_tri_dong) // tong_goc`.
-  2. Do phép chia nguyên có thể thiếu vài đồng lẻ, tính `phan_du = tong_giam - sum(phan_giam)`.
-  3. Dùng vòng lặp `for` cộng thêm `1` đồng giảm giá vào từng dòng đầu tiên cho tới khi hết `phan_du`.
-  4. `paid_total` (tiền thực trả của dòng) = `gia_tri_dong - phan_giam`.
+### Thuật toán 3: Kiểm tra đổi hàng (Trong 30 ngày, không đổi hàng lỗi)
+1. Kiểm tra hóa đơn gốc có tồn tại và `(ngay_hien_tai - ngay_mua) <= 30 ngày`.
+2. **Kiểm tra tình trạng sản phẩm trả:** Bắt buộc là hàng còn nguyên vẹn (`condition_ok = True`). Nếu là hàng lỗi → từ chối ngay.
+3. Tính tổng số lượng đã đổi ở các phiếu đổi trước đó để đảm bảo không đổi vượt quá số lượng đã mua.
+4. Cộng tổng tiền thực trả (`paid_total`) của các món trả lại thành `credit_amount`.
+5. Tính tổng tiền các món khách lấy mới (`replacement_total`). Nếu `replacement_total < credit_amount` → báo lỗi vì không hoàn tiền thừa.
+6. Trong cùng một SQL Transaction: cộng lại hàng trả vào `stock_qty`, trừ hàng mới lấy khỏi `stock_qty`, lưu phiếu đổi và ghi `audit_logs`.
 
-### Thuật toán 4: Kiểm tra đổi hàng (Không đổi hàng lỗi)
-- **Các bước tuần tự:**
-  1. Kiểm tra hóa đơn gốc có tồn tại và `(ngay_hien_tai - ngay_mua) <= 30 ngày`.
-  2. **Kiểm tra tình trạng sản phẩm trả:** Bắt buộc là hàng nguyên vẹn đạt tiêu chuẩn (`condition_ok = True`). Nếu là hàng lỗi -> từ chối ngay.
-  3. Kiểm tra số lượng đổi $\le$ `so_luong_mua_ban_dau - so_luong_da_doi_truoc_do`.
-  4. Cộng tổng tiền thực trả của các món trả lại thành `credit_amount`.
-  5. Tính tổng tiền các món khách lấy mới (`replacement_total`). Nếu `replacement_total < credit_amount` -> báo lỗi vì không hoàn tiền thừa.
-  6. Trong 1 Transaction: cộng hàng trả về `warehouse_qty`, trừ hàng mới lấy từ `counter_qty`/`warehouse_qty`, lưu phiếu đổi và ghi `audit_logs`.
+### Thuật toán 4: Cảnh báo thiếu hàng & Hàng tồn lâu chưa bán
+- Với mỗi sản phẩm đang bán, duyệt các kích cỡ:
+  - Nếu tổng tồn `= 0` → cảnh báo **Hết hàng**.
+  - Nếu có kích cỡ tồn `= 0` → cảnh báo **Hết size**.
+  - Nếu tổng tồn `<= ngưỡng` (mặc định `2`) → cảnh báo **Sắp hết hàng**.
+  - Nếu có kích cỡ tồn `<= ngưỡng` → cảnh báo **Sắp hết size**.
+- Nếu sản phẩm còn tồn (`> 0`) và ngày nhập/bán gần nhất cách hiện tại `>= 30 ngày` → đưa vào danh sách hàng lâu chưa bán.
 
-### Thuật toán 5: Chống trùng giờ khi phân ca làm việc
+### Thuật toán 5: Chống trùng giờ khi phân ca & Dự toán lương
 - Hai ca làm `(start_1, end_1)` và `(start_2, end_2)` của cùng 1 nhân viên trong cùng 1 ngày bị trùng nhau khi và chỉ khi:
   `start_1 < end_2 AND end_1 > start_2`
-- Chỉ cần 1 câu SQL `SELECT COUNT(*)` kiểm tra điều kiện này trước khi lưu ca mới.
+- Dự toán lương tháng: Nếu nhân viên hưởng lương tháng thì lấy `base_salary`; nếu hưởng lương theo giờ thì cộng tổng số giờ các ca đã hoàn thành (`status = 'completed'`) nhân với `hourly_rate`.
 
 ### Thuật toán 6: Tìm kiếm tiếng Việt không dấu
-- Ở frontend (`search.js`) hoặc backend: chuyển chuỗi về chữ thường, chuẩn hóa Unicode (`unicodedata.normalize('NFD', text)` ở Python) và bỏ dấu thanh tiếng Việt, rồi dùng phép kiểm tra chuỗi con (`keyword in normalized_text`) hoặc `LIKE %keyword%` trong SQL.
+- Chuyển chuỗi về chữ thường, chuẩn hóa Unicode (`unicodedata.normalize('NFD', text)` ở Python) để loại bỏ dấu thanh tiếng Việt, rồi dùng phép kiểm tra chuỗi con (`keyword in normalized_text`) hoặc `LIKE %keyword%` trong SQL.

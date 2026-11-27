@@ -13,10 +13,10 @@ Sử dụng skill này khi lập trình toàn bộ phần Backend tại thư m�
 
 ## 1. Framework & Thư viện khuyên dùng (Dễ học, dễ vấn đáp)
 
-- **Web Framework:** `Flask` (kèm `Flask-CORS` hoặc phục vụ luôn thư mục tĩnh `dist/` để tránh lỗi CORS).
+- **Web Framework:** `Flask` (phục vụ luôn thư mục tĩnh `dist/` trên cùng cổng để tránh lỗi CORS).
 - **Database Driver:** `mysql-connector-python` (viết SQL thuần có tham số `%s`, KHÔNG dùng SQLAlchemy/ORM để code rõ ràng từng câu truy vấn khi giảng viên hỏi).
-- **Session / Auth:** Dùng `flask.session` (cookie ký số) hoặc token đơn giản lưu ở server/session kèm mật khẩu băm `werkzeug.security` (`generate_password_hash`, `check_password_hash`) hoặc `hashlib.sha256` có salt.
-- **Biến môi trường:** `python-dotenv` đọc file `.env` (chứa `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `SECRET_KEY`).
+- **Session / Auth:** Dùng `flask.session` (cookie ký số) kèm mật khẩu băm `hashlib.sha256` có salt hoặc `werkzeug.security`.
+- **Biến môi trường:** `python-dotenv` đọc file `.env` (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `SECRET_KEY`).
 
 ## 2. Cấu trúc thư mục Backend chuẩn OOP
 
@@ -24,69 +24,65 @@ Sử dụng skill này khi lập trình toàn bộ phần Backend tại thư m�
 backend/
 ├── app.py                     # Khởi tạo Flask app, đăng ký Blueprints, phục vụ dist/
 ├── config.py                  # Class Config đọc cấu hình DB và Secret Key
-├── requirements.txt           # flask, flask-cors, mysql-connector-python, python-dotenv
+├── requirements.txt           # flask, mysql-connector-python, python-dotenv
 ├── .env.example               # Mẫu cấu hình kết nối MySQL
 ├── database/
 │   ├── connection.py          # Class DatabaseManager quản lý kết nối MySQL & transaction
-│   ├── schema.sql             # Script tạo 15 bảng MySQL chuẩn theo docs/ERD-ATINO.md
-│   └── seed.sql               # Dữ liệu mẫu ban đầu (nhân viên, khách hàng, sản phẩm, kho)
+│   ├── schema.sql             # Script tạo 14 bảng (12 chính + 2 hệ thống) theo docs/ERD-ATINO.md
+│   └── seed.sql               # Dữ liệu mẫu ban đầu
 ├── models/                    # Tầng Đối tượng (Entities)
-│   ├── base_model.py          # Class BaseModel (hàm to_dict, validate cơ bản)
+│   ├── base_model.py          # Class BaseModel (to_dict, validate cơ bản)
 │   ├── staff.py               # Class Staff, Shift
-│   ├── product.py             # Class Product, ProductSize
-│   ├── partner.py             # Class Customer, Supplier
-│   ├── promotion.py           # Class Voucher, StoreSettings
+│   ├── product.py             # Class Product (gộp tem nhãn & đánh giá tồn), ProductSize
+│   ├── partner.py             # Class Customer, Supplier (NCC001)
 │   ├── transaction.py         # Class StockDocument, SaleInvoice, ExchangeTicket
-│   └── audit_log.py           # Class AuditLog
+│   └── system.py              # Class StoreSettings, AuditLog
 ├── dao/                       # Tầng Truy xuất Dữ liệu (Data Access Objects)
-│   ├── base_dao.py            # Class BaseDAO (kế thừa cho các DAO con: fetch_one, fetch_all, execute)
-│   ├── staff_dao.py
-│   ├── product_dao.py         # Thao tác bảng products và product_sizes (warehouse_qty, counter_qty)
-│   ├── customer_dao.py
-│   ├── supplier_dao.py
-│   ├── voucher_dao.py
-│   ├── stock_dao.py
-│   ├── sale_dao.py
-│   ├── exchange_dao.py
-│   └── audit_dao.py
+│   ├── base_dao.py            # Class BaseDAO (kế thừa cho DAO con: fetch_one, fetch_all, execute)
+│   ├── staff_dao.py           # Bảng staff & shifts
+│   ├── product_dao.py         # Bảng products & product_sizes (1 cột stock_qty duy nhất)
+│   ├── customer_dao.py        # Bảng customers
+│   ├── supplier_dao.py        # Bảng suppliers (chỉ NCC001)
+│   ├── stock_dao.py           # Bảng stock_documents & stock_document_items
+│   ├── sale_dao.py            # Bảng sales_invoices & sales_invoice_items
+│   ├── exchange_dao.py        # Bảng exchanges & exchange_items
+│   └── system_dao.py          # Bảng store_settings & audit_logs
 ├── services/                  # Tầng Nghiệp vụ (Business Logic)
-│   ├── auth_service.py        # Đăng nhập, đăng xuất, kiểm tra quyền manager/employee
-│   ├── inventory_service.py   # Nhập kho, xuất kho, điều chuyển kho tổng <-> quầy, cảnh báo hết size
-│   ├── sale_service.py        # Báo giá đơn, chọn voucher tốt nhất, ưu đãi sinh nhật, lưu hóa đơn
+│   ├── auth_service.py        # Đăng nhập, hồ sơ cá nhân, avatar, đổi MK, mã khôi phục
+│   ├── inventory_service.py   # Quản lý SP, tem nhãn, đánh giá tồn, nhập/xuất kho, cảnh báo
+│   ├── sale_service.py        # Báo giá đơn, tách người bán/thu ngân, thanh toán, lưu hóa đơn
 │   ├── exchange_service.py    # Kiểm tra hạn 30 ngày, từ chối hàng lỗi, tính chênh lệch, lưu phiếu đổi
-│   ├── crm_service.py         # Quản lý khách hàng & tính hạng thành viên
-│   ├── hrm_service.py         # Quản lý nhân viên, phân ca (check trùng giờ), dự toán lương
-│   ├── report_service.py      # Doanh thu theo ngày/tháng/năm, tiền mặt/chuyển khoản, top sản phẩm
+│   ├── crm_service.py         # Quản lý khách hàng & tính hạng thành viên (Đồng/Bạc/Vàng/KC)
+│   ├── hrm_service.py         # Quản lý nhân viên, phân ca (chặn trùng giờ), dự toán lương
+│   ├── report_service.py      # Doanh thu ngày/tháng/năm, tiền mặt/CK, top SP, doanh thu theo người bán
 │   └── settings_service.py    # Chính sách đổi hàng & ngưỡng hạng
 └── routes/                    # Tầng API Endpoints (Flask Blueprints)
-    ├── auth_routes.py         # /api/login, /api/logout, /api/me
-    ├── inventory_routes.py    # /api/products, /api/stock-documents
+    ├── auth_routes.py         # /api/login, /api/logout, /api/account/*
+    ├── inventory_routes.py    # /api/products, /api/products/<code>/note, /api/stock-documents
     ├── sale_routes.py         # /api/sales/quote, /api/sales
     ├── exchange_routes.py     # /api/exchanges/quote, /api/exchanges
-    ├── crm_routes.py          # /api/customers, /api/vouchers
+    ├── crm_routes.py          # /api/customers
     ├── hrm_routes.py          # /api/staff, /api/shifts
-    ├── supplier_routes.py     # /api/suppliers
+    ├── supplier_routes.py     # /api/suppliers/NCC001
     └── report_routes.py       # /api/reports/overview, /api/audit-logs, /api/settings
 ```
 
 ## 3. Hướng dẫn viết từng tầng theo OOP dễ hiểu
 
 1. **Class `DatabaseManager` (`database/connection.py`)**:
-   - Đóng gói thông tin host, user, password, database.
-   - Cung cấp phương thức `get_connection()` trả về connection từ `mysql.connector.connect(...)`.
+   - Đóng gói thông tin kết nối MySQL và cung cấp `get_connection()`.
 2. **Class `BaseDAO` (`dao/base_dao.py`)**:
-   - Các DAO khác kế thừa `BaseDAO`: `class ProductDAO(BaseDAO):`.
-   - Có các method dùng chung: `fetch_all(sql, params)`, `fetch_one(sql, params)`, `execute(sql, params)`.
-   - Luôn dùng `dictionary=True` trên cursor để dữ liệu trả về là `dict` dễ đọc, dễ chuyển sang JSON.
+   - Các DAO con kế thừa `BaseDAO`: `class ProductDAO(BaseDAO):`.
+   - Có hàm dùng chung: `fetch_all(sql, params)`, `fetch_one(sql, params)`, `execute(sql, params)`.
+   - Dùng `dictionary=True` trên cursor để dữ liệu trả về là `dict` dễ đọc.
 3. **Tầng `services/`**:
-   - Nhận các DAO cần thiết qua `__init__(self, db_manager)` (Dependency Injection đơn giản).
-   - Khi thực hiện nghiệp vụ thay đổi nhiều bảng (như **Lưu hóa đơn** hoặc **Lưu phiếu đổi hàng** hoặc **Nhập/Xuất kho**), mở transaction tường minh:
+   - Khi thực hiện nghiệp vụ thay đổi nhiều bảng (Bán hàng, Đổi hàng, Nhập/Xuất kho), luôn bọc trong SQL Transaction:
      ```python
      conn = self.db.get_connection()
      try:
          conn.start_transaction()
-         # 1. Kiểm tra tồn kho
-         # 2. Trừ/cộng product_sizes (warehouse_qty, counter_qty)
+         # 1. Kiểm tra tồn kho (stock_qty)
+         # 2. Cộng/trừ product_sizes.stock_qty
          # 3. Lưu chứng từ + chi tiết dòng
          # 4. Ghi audit_logs
          conn.commit()
@@ -96,26 +92,25 @@ backend/
      finally:
          conn.close()
      ```
-4. **Decorator kiểm tra đăng nhập & quyền (`routes/`)**:
-   - Chỉ cần 1 hàm helper hoặc decorator đơn giản `require_auth(roles=["manager", "employee"])` đọc `session.get("user")`.
-   - Tuyệt đối không trả cột `import_price` (giá nhập) hay báo cáo tổng quan nếu `user["role"] != "manager"`.
+4. **Kiểm tra quyền trên Route (`routes/`)**:
+   - Dùng helper `require_auth(roles=["manager", "employee"])`.
+   - Chặn `403 Forbidden` nếu `employee` truy cập giá nhập (`import_price`), bổ sung giá nhập, báo cáo tổng quan, nhân sự, khách hàng, chính sách hoặc nhật ký kiểm toán.
 
-## 4. Các thuật toán cốt lõi phải viết thật tường minh
+## 4. Các nghiệp vụ cốt lõi phải viết tường minh
 
-1. **Chọn ưu đãi tốt nhất khi bán hàng (`SaleService.tinh_bao_gia`)**:
-   - Bước 1: Tính `gross_amount = sum(qty * unit_price)`.
-   - Bước 2: Dùng 1 vòng `for` duyệt các voucher đang hoạt động, kiểm tra `start_date <= today <= end_date`, `used_count < usage_limit` (hoặc `usage_limit == 0`), `gross_amount >= min_order`, và hạng khách hàng đạt yêu cầu. Chọn voucher có số tiền giảm lớn nhất.
-   - Bước 3: Kiểm tra khách có sinh nhật hôm nay và chưa dùng ưu đãi sinh nhật trong năm hiện tại không -> tính giảm 10% (tối đa 100.000đ).
-   - Bước 4: So sánh giảm giá voucher và giảm giá sinh nhật, chọn phương án giảm nhiều tiền nhất cho khách.
-2. **Phân bổ tiền giảm giá về từng dòng hàng (`_phan_bo_giam_gia`)**:
-   - Dùng chia nguyên `(discount_amount * line_total) // gross_amount`, phần dư cộng từng 1 đồng từ dòng đầu tiên đến khi hết. Giúp khi đổi trả từng món vẫn biết chính xác số tiền khách đã thực trả cho món đó.
-3. **Kiểm tra đổi hàng (`ExchangeService`)**:
+1. **Tồn kho 1 con số chung (`InventoryService`)**:
+   - Chỉ có `stock_qty` cho từng `(product_code, size_name)`.
+   - Nhập kho cộng `stock_qty`; Xuất kho (chỉ xuất ra ngoài, chặn nơi nhận nội bộ) hoặc Bán hàng kiểm tra `qty <= stock_qty` rồi trừ `stock_qty`.
+2. **Bán hàng (`SaleService`)**:
+   - Không có voucher và không giảm giá sinh nhật; `total_amount = sum(qty * unit_price)` và lưu `paid_total = qty * unit_price` cho từng dòng.
+   - Ghi nhận cả `seller_code` (người bán tính doanh thu) và `cashier_code` (thu ngân thu tiền).
+3. **Đổi hàng (`ExchangeService`)**:
    - Kiểm tra hóa đơn tồn tại và `0 <= (today - invoice_date).days <= 30`.
-   - **Kiểm tra tình trạng hàng:** Nếu nhận tham số tình trạng là hàng lỗi -> trả lỗi `400`: `"Cửa hàng không hỗ trợ đổi đối với sản phẩm bị lỗi."`
-   - Tính tổng số lượng đã đổi ở các phiếu trước của cùng hóa đơn để đảm bảo không đổi vượt quá số lượng đã mua.
-   - Tổng giá trị hàng mới phải `>= credit_amount` (chỉ thu thêm, không hoàn tiền).
+   - **Từ chối hàng lỗi:** Nếu hàng trả không đạt tiêu chuẩn (`condition != 'resellable'` hoặc `condition_ok == False`) -> trả lỗi `400`.
+   - Tính tổng đã đổi trước đó trên cùng hóa đơn; tổng giá trị hàng mới phải `>= credit_amount` (thu chênh lệch, không hoàn tiền thừa).
+   - Cộng hàng khách trả vào `stock_qty`, trừ hàng mới giao khỏi `stock_qty`.
 
 ## 5. Bước kiểm tra sau khi viết code
 
-1. Chạy `python -m py_compile` kiểm tra toàn bộ file `.py` không lỗi cú pháp.
-2. Khởi chạy Flask `python backend/app.py`, dùng `curl` hoặc script test kiểm tra đăng nhập, phân quyền 403 cho nhân viên, bán hàng trừ kho, đổi hàng từ chối hàng lỗi, và ghi `audit_logs`.
+1. Chạy `python -m py_compile` kiểm tra toàn bộ file `.py`.
+2. Khởi chạy Flask `python backend/app.py`, kiểm tra đăng nhập, đổi mật khẩu bằng mã khôi phục, phân quyền 403, bán hàng trừ `stock_qty`, đổi hàng từ chối hàng lỗi, và ghi `audit_logs`.

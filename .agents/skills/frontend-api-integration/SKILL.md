@@ -2,9 +2,10 @@
 name: frontend-api-integration
 description: >-
   Use this skill when connecting the existing HTML/CSS/JavaScript frontend in
-  dist/ to the Python Flask REST API using fetch('/api/...'). Preserves the UI
-  while replacing local IndexedDB demo storage and aligning UI labels with the
-  removed damaged-return/held-stock features.
+  dist/ to the Python Flask REST API using fetch('/api/...'). Preserves the
+  latest dist/ UI (unified stock, no vouchers, no damaged returns, account
+  profile/recovery, Excel export, product labels) while replacing IndexedDB demo
+  storage.
 ---
 
 # Frontend - Backend API Integration Skill
@@ -13,22 +14,19 @@ Sử dụng skill này khi nối giao diện HTML/CSS/JS trong `dist/` với Bac
 
 ## 1. Nguyên tắc tích hợp
 
-- **Giữ nguyên HTML/CSS/JS thuần** (không chuyển sang React/Vue hay build tool phức tạp).
-- Trong `dist/index.html`, hàm `api(path, options)` (khoảng dòng 2265) đã viết sẵn cấu trúc gọi `fetch('/api/' + path, ...)`. Agent cần:
-  1. Tách hoặc vô hiệu hóa mock `window.AtinoDemo` (không dùng dữ liệu giả lập `IndexedDB` nữa khi chạy bản có backend).
-  2. Chuyển toàn bộ các lời gọi trong `dist/assets/erp.js` (`snapshot`, `checkoutData`, `saveProduct`, `saveStockDocument`, `completeReceiptCost`, `quoteSale`, `saveSale`, `quoteExchange`, `saveExchange`, `saveCustomer`, `saveSupplier`, `saveVoucher`, `saveEmployee`, `saveShift`, `deleteShift`, `saveSettings`) sang gọi `fetch('/api/...')` tới Flask.
-  3. Phục vụ `dist/` trực tiếp từ Flask (`static_folder='../dist'`) để cùng origin `http://localhost:5000`, tránh rắc rối CORS và giữ cookie session hoạt động mượt mà.
+- **Giữ nguyên HTML/CSS/JS thuần** trong `dist/` (bao gồm giao diện tài khoản `account-ui.js`, tem nhãn `product-labels.js`, xuất Excel `workbook.js` / `report-export.js`).
+- Không làm sống lại các tính năng đã bỏ (`vouchers`, ưu đãi sinh nhật, tách 2 kho, `held`, đổi hàng lỗi).
+- Trong `dist/index.html`, hàm `api(path, options)` đã có sẵn khung `fetch('/api/' + path, ...)`. Agent cần:
+  1. Tắt/gỡ bỏ mock `window.AtinoDemo` dùng `IndexedDB` khi chạy bản kết nối backend.
+  2. Nối toàn bộ API của `dist/assets/erp.js` và `dist/assets/account-store.js` sang gọi Flask endpoints:
+     - Tài khoản: `/api/login`, `/api/logout`, `/api/account`, `/api/account/profile`, `/api/account/password`, `/api/account/recovery-code`, `/api/account/reset-password`
+     - Hàng hóa & Kho: `/api/snapshot`, `/api/checkout-data`, `/api/products`, `/api/products/<code>/note`, `/api/stock-documents/preview`, `/api/stock-documents`, `/api/stock-documents/complete-cost`
+     - Bán hàng & Đổi hàng: `/api/sales/quote`, `/api/sales`, `/api/exchanges/quote`, `/api/exchanges`
+     - Đối tác & Nhân sự: `/api/suppliers/NCC001`, `/api/customers`, `/api/staff`, `/api/shifts`, `/api/settings`
+  3. Phục vụ `dist/` trực tiếp từ Flask (`static_folder='../dist'`) để dùng chung origin, cookie session hoạt động ổn định.
 
-## 2. Điều chỉnh UI theo 2 yêu cầu đã chốt
+## 2. Xử lý lỗi & Trạng thái tải
 
-1. **Bỏ "Hàng lỗi chờ xử lý" (`held`) ở phần Tồn kho:**
-   - Trong `dist/assets/manager-shell.js`, `dist/assets/manager-operations.js`, `dist/assets/erp.js` và `dist/index.html`: ẩn/xóa các thẻ thống kê, cột bảng hoặc bộ lọc hiển thị số lượng `held` / "Chờ xử lý".
-   - Giữ nguyên hiển thị **Kho tổng** (`warehouse`), **Quầy bán** (`counter`), **Tổng tồn theo Size** và cảnh báo thiếu hàng theo từng size.
-2. **Bỏ lựa chọn "Hàng lỗi" trong form Đổi hàng:**
-   - Trong `dist/assets/manager-operations.js` (form lập phiếu đổi hàng): bỏ tùy chọn tình trạng `damaged` / "Hàng lỗi". Chỉ cho phép xác nhận hàng trả lại là **"Đạt tiêu chuẩn / Nguyên vẹn"**; ghi rõ thông báo chính sách: *Không hỗ trợ đổi hàng lỗi*.
-
-## 3. Xử lý lỗi & Trạng thái tải
-
-- Mọi hàm `fetch` phải kiểm tra `if (!response.ok)` để lấy trường `error` từ JSON của Flask và hiển thị thông báo tiếng Việt lên giao diện.
-- Khi server trả mã `401 Unauthorized`, tự động chuyển về màn hình đăng nhập.
-- Khi server trả mã `403 Forbidden`, hiển thị thông báo `"Bạn không có quyền thực hiện thao tác này"`.
+- Mọi lời gọi `fetch` phải kiểm tra `if (!response.ok)` để lấy trường `error` từ JSON của Flask và hiển thị thông báo tiếng Việt trên giao diện.
+- Khi server trả `401 Unauthorized`, tự động đưa về màn hình đăng nhập.
+- Khi server trả `403 Forbidden`, hiển thị thông báo `"Bạn không có quyền thực hiện thao tác này."`.
