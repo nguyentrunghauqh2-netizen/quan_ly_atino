@@ -1,6 +1,6 @@
 # quan_ly_atino — Hệ thống Quản lý Cửa hàng Thời trang Atino
 
-Dự án xây dựng phần mềm quản lý cửa hàng thời trang **Atino** theo mô hình **Frontend (HTML, CSS, JavaScript thuần) + Backend API (Python Flask OOP) + Cơ sở dữ liệu MySQL**.
+Bản đang chạy dùng HTML, CSS và JavaScript trong `dist/`. Dữ liệu cửa hàng được lưu bằng IndexedDB trong trình duyệt. Flask và MySQL là kiến trúc dự kiến cho giai đoạn triển khai máy chủ.
 
 ---
 
@@ -28,9 +28,8 @@ quan_ly_atino/
 │   ├── erd-tong-quan.png             # Sơ đồ tổng quan quan hệ dữ liệu (thuần tiếng Việt)
 │   ├── erd-atino.png                 # Sơ đồ chi tiết 14 bảng & thuộc tính (thuần tiếng Việt)
 │   └── HUONG-DAN-VAN-DAP.md          # Giải thích kiến trúc & thuật toán dễ học để vấn đáp
-├── dist/                             # Mã nguồn Frontend tĩnh (HTML, CSS, JS thuần)
-│   └── assets/documents.js           # Mẫu Hóa đơn Nhập / Xuất (chuyển kho) và Hóa đơn bán hàng (bản in có QR)
-└── backend/                          # (Dành cho Agent triển khai Backend Python Flask + MySQL)
+└── dist/                             # Mã nguồn Frontend tĩnh (HTML, CSS, JS thuần)
+    └── assets/documents.js           # Mẫu Hóa đơn Nhập / Xuất (chuyển kho) và Hóa đơn bán hàng (bản in có QR)
 ```
 
 ---
@@ -42,7 +41,7 @@ quan_ly_atino/
 3. **Nhập / Xuất kho & 1 Nhà cung cấp đầu mối (`NCC001`):** Nhập hàng cộng `stock_qty` (Quản lý nhập/bổ sung giá vốn, Nhân viên chỉ nhập số lượng và giá bán); xuất kho chỉ xuất ra ngoài cửa hàng.
 4. **Bán hàng & Thu ngân (POS):** Tách Người bán và Thu ngân, không có voucher/giảm giá sinh nhật, thanh toán Tiền mặt/Chuyển khoản, in hóa đơn.
 5. **Đổi hàng:** Trong vòng 30 ngày, **chỉ nhận hàng nguyên vẹn đạt chuẩn (từ chối hàng lỗi)**, đổi ngang hoặc cao hơn giá thực trả và thu chênh lệch.
-6. **Khách hàng (CRM):** Lưu hồ sơ, xem lịch sử đơn, tạo bản nháp email.
+6. **Khách hàng (CRM):** Lưu hồ sơ, tra cứu lịch sử đơn theo mã khách hàng.
 7. **Nhân sự & Ca làm (HRM):** Hồ sơ, phân ca (chặn trùng giờ), dự toán lương tháng.
 8. **Báo cáo & Xuất Excel (`.xlsx`):** Doanh thu ngày/tháng/năm, Tiền mặt vs Chuyển khoản, top sản phẩm, doanh thu theo người bán, xuất file Excel nhiều sheet.
 9. **Chính sách & Nhật ký kiểm toán:** Quản lý điều kiện đổi hàng và tra cứu lịch sử thao tác (`audit_logs`).

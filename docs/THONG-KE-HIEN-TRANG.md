@@ -21,8 +21,7 @@
 1. **Lưu trữ dùng chung.** Web v12 đã phát hành ở dạng tĩnh. Mã dist/assets/erp.js dùng AtinoDemo.transact và dữ liệu trình duyệt. Flask, MySQL, SQL tham số và bốn tầng model, DAO, service, route là thiết kế đích. Chưa thấy bộ mã backend hoặc schema SQL của Atino trong danh sách tệp dự án. Chưa thể coi hai máy nhân viên là đang dùng chung sổ hàng.
 2. **Điều kiện lưu phiếu đổi.** ERD mô tả exchanges.reason là NOT NULL trong khi web đã bỏ nhập lý do. Trước khi viết SQL, bỏ ràng buộc bắt người dùng cung cấp giá trị này và giữ khả năng đọc chứng từ cũ.
 3. **Đánh giá hàng hóa.** Đặc tả còn yêu cầu quản lý ghi lý do và hướng xử lý. Chủ cửa hàng đã chọn xếp loại tự động theo số chiếc. Cần sửa đặc tả và phân biệt ngưỡng cảnh báo số lượng với xếp loại bán chạy.
-4. **Ưu đãi còn sót ở màn hình nhân viên.** dist/assets/employee-shell.js vẫn dựng dòng Ưu đãi khi mở chi tiết hóa đơn bán. Cần bỏ dòng hiển thị nhưng giữ số thực trả đã lưu để tính đúng khi đổi hóa đơn cũ.
-5. **Tài liệu rà soát cũ.** RA-SOAT.md nói đến hàng lỗi chờ xử lý. Đó là ghi nhận của thiết kế cũ. Quy tắc hiện tại chỉ nhận đổi hàng đủ tiêu chuẩn bán lại.
+
 
 ## Số bảng, tài liệu và thư mục
 

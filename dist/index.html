@@ -611,9 +611,9 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
     <script src="assets/catalog.js?v=f5abae38a5b6"></script>
     <script src="assets/product-labels.js?v=dd9885ef42a0"></script>
     <script src="assets/images.js?v=712c626777ee"></script>
-    <script src="assets/account-store.js?v=070f7da5c06a"></script>
+    <script src="assets/account-store.js?v=90f07500504a"></script>
     <script src="assets/erp.js?v=f747633d3d66"></script>
-    <script src="assets/demo-seed.js?v=4c33ca284a51"></script>
+    <script src="assets/demo-seed.js?v=5cc084fa71af"></script>
     <script src="assets/search.js?v=54d003735e9e"></script>
     <script>
 // QRCode for JavaScript by Kazuhiko Arase. See qr-code-license.txt.
@@ -1920,8 +1920,20 @@ window.AtinoDemo = (() => {
         throw error;
     }
 
-    function remember(account) {
-        tabSession = account ? {code:account.code, revision:account.revision} : null;
+    const sessionKey = 'atino.tab-session.v1';
+    try { tabSession = sessionStorage.getItem(sessionKey); } catch {}
+
+    function remember(token) {
+        tabSession = token;
+        try {
+            if (token) sessionStorage.setItem(sessionKey, token);
+            else sessionStorage.removeItem(sessionKey);
+        } catch { /* Dùng bộ nhớ của tab nếu trình duyệt chặn lưu trữ. */ }
+    }
+
+    function renewSession(shop, account) {
+        const session = shop.sessions?.find(entry => entry.token === tabSession && entry.code === account.code);
+        if (session) session.revision = account.revision;
     }
 
     function migrateDemoLogins(staff) {
@@ -2031,7 +2043,8 @@ window.AtinoDemo = (() => {
     }
 
     function actor(shop, allowedRoles=roles) {
-        const row = shop.staff.find(person => person.active && person.code === tabSession?.code && person.revision === tabSession.revision);
+        const session = shop.sessions?.find(entry => entry.token === tabSession && entry.expires > Date.now());
+        const row = session && shop.staff.find(person => person.active && person.code === session.code && person.revision === session.revision);
         if (!row) fail('Vui lòng đăng nhập để tiếp tục.',401);
         if (!allowedRoles.includes(row.role)) fail('Vai trò này không có quyền thực hiện thao tác.',403);
         return row;
@@ -2068,7 +2081,7 @@ window.AtinoDemo = (() => {
         return {salt, hash:await passwordHash(password,salt)};
     }
 
-    const accountStore = window.AtinoAccountStore.create({access,actor,remember,passwordHash,makeCredentials,publicAccount,fail});
+    const accountStore = window.AtinoAccountStore.create({access,actor,renewSession,passwordHash,makeCredentials,publicAccount,fail});
 
     async function login(data) {
         const name = String(data.username || '').trim().toLowerCase().normalize('NFC');
@@ -2076,14 +2089,17 @@ window.AtinoDemo = (() => {
         if (!saved?.hash || typeof data.password !== 'string' || await passwordHash(data.password,saved.salt) !== saved.hash) {
             fail('Tên đăng nhập hoặc mật khẩu chưa đúng.',401);
         }
+        const token = crypto.randomUUID();
         const row = await access(true,shop => {
             const latest = shop.staff.find(person => person.code === saved.code);
             if (!latest?.active || saved.revision !== latest.revision) fail('Tài khoản vừa thay đổi. Hãy đăng nhập lại.',401);
             shop.audit ||= [];
             shop.audit.unshift({id:crypto.randomUUID(),when:Date.now(),employeeId:latest.code,employeeName:latest.name,action:'Đăng nhập',reference:latest.code});
+            shop.sessions = (shop.sessions || []).filter(entry => entry.expires > Date.now() && entry.token !== tabSession);
+            shop.sessions.push({token, code:latest.code, revision:latest.revision, expires:Date.now() + 7 * 86400000});
             return latest;
         });
-        remember(row);
+        remember(token);
         return {user:publicAccount(row)};
     }
 
@@ -2107,12 +2123,12 @@ window.AtinoDemo = (() => {
                 if (row.role !== data.role || !data.active || password) row.revision++;
             } else {
                 if (shop.staff.some(entry => entry.username === username)) fail('Tên đăng nhập này đã được sử dụng.',409);
-                row = {code:'NV' + String(shop.staff.length+1).padStart(3,'0'),username,revision:1};
+                row = {code:window.AtinoDemoSeed.nextStaffCode(shop.staff),username,revision:1};
                 shop.staff.push(row);
             }
             Object.assign(row,{name,role:data.role,active:data.active},credentials,window.AtinoERP?.employeeFields(data,row) || {});
             if (password) delete row.recoveryHash;
-            if (user.code === row.code) remember(row);
+            if (user.code === row.code) renewSession(shop,row);
             if (shop.audit) shop.audit.unshift({id:crypto.randomUUID(),when:Date.now(),employeeId:user.code,employeeName:user.name,action:'Cập nhật nhân viên',reference:row.code});
             return {code:row.code};
         });
@@ -2230,7 +2246,14 @@ window.AtinoDemo = (() => {
             return {user,database:inMemory?'Dữ liệu trong tab':'Dữ liệu trên trình duyệt'};
         });
         if (route==='login') return login(data);
-        if (route==='logout') { remember(null); return {ok:true}; }
+        if (route==='logout') {
+            const token = tabSession;
+            remember(null);
+            return access(true, shop => {
+                shop.sessions = (shop.sessions || []).filter(entry => entry.token !== token);
+                return {ok:true};
+            });
+        }
         if (route==='state') return access(false,shop=>view(shop,actor(shop)));
         if (route==='account' && !options.method) return accountStore.read();
         if (route==='account/profile' && options.method==='PATCH') return accountStore.saveProfile(data);

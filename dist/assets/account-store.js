@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  function create({access, actor, remember, passwordHash, makeCredentials, publicAccount, fail}) {
+  function create({access, actor, renewSession, passwordHash, makeCredentials, publicAccount, fail}) {
     function audit(shop, account, action) {
       shop.audit ||= [];
       shop.audit.unshift({
@@ -78,15 +78,14 @@
       validateNewPassword(data.newPassword);
       const previous = await verifyPassword(data.password);
       const credentials = await makeCredentials(data.newPassword);
-      const updated = await access(true, shop => {
+      await access(true, shop => {
         const account = unchangedAccount(shop, previous);
         Object.assign(account, credentials);
         account.revision++;
         delete account.recoveryHash;
         audit(shop, account, 'Đổi mật khẩu');
-        return {code: account.code, revision: account.revision};
+        renewSession(shop, account);
       });
-      remember(updated);
       return {ok: true};
     }
 

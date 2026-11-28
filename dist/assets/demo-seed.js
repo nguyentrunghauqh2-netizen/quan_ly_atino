@@ -692,7 +692,7 @@
       const digits=stripped.match(/(\d+)$/);
       let seq=digits?Number(digits[1]):1;
       let code;
-      do {code=prefix+String(seq++).padStart(4,'0');} while(used.has(code));
+      do {code=prefix+String(seq++).padStart(prefix==='NV'?3:4,'0');} while(used.has(code));
       mapping.set(old,code);used.add(code);
     }
     function update(record) {
@@ -815,10 +815,40 @@
     return true;
   }
 
+  function nextStaffCode(staff) {
+    let highest = 0;
+    for (const person of staff) {
+      if (/^NV\d+$/.test(person.code)) highest = Math.max(highest, Number(person.code.slice(2)));
+    }
+    return 'NV' + String(highest + 1).padStart(3, '0');
+  }
+
+  function migrateStaffCodes(shop) {
+    const renamed = new Map();
+    for (const person of shop.staff || []) {
+      if (!/^NV0\d{3,}$/.test(person.code)) continue;
+      const preferred = 'NV' + String(Number(person.code.slice(2))).padStart(3, '0');
+      const code = shop.staff.some(row => row.code === preferred) ? nextStaffCode(shop.staff) : preferred;
+      renamed.set(person.code, code);
+      person.code = code;
+    }
+    if (!renamed.size) return false;
+    for (const records of [shop.movements, shop.returns, shop.shifts, shop.audit]) {
+      for (const row of records || []) {
+        for (const key of ['employeeId','sellerId','cashierId','costedBy','reference']) {
+          if (renamed.has(row[key])) row[key] = renamed.get(row[key]);
+        }
+      }
+    }
+    for (const entry of shop.sessions || []) if (renamed.has(entry.code)) entry.code = renamed.get(entry.code);
+    return true;
+  }
+
   function apply(shop) {
     const seeded = applySeed(shop);
     const cleaned = cleanRealData(shop);
-    return seeded || cleaned;
+    const migrated = migrateStaffCodes(shop);
+    return seeded || cleaned || migrated;
   }
 
   function applySeed(shop) {
@@ -857,5 +887,5 @@
     return renamed || first || second || third || fourth || fifth || finished || codesChanged || supplierChanged || Boolean(legacySupplier);
   }
 
-  window.AtinoDemoSeed = Object.freeze({apply, staffNames});
+  window.AtinoDemoSeed = Object.freeze({apply, staffNames, nextStaffCode});
 })();
