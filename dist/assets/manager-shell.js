@@ -49,7 +49,7 @@ const paths = {
  gift:'<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v9h14v-9M12 8v13M12 8C5 8 5 2 8 3c3 0 4 5 4 5s1-5 4-5c3-1 3 5-4 5"/>'
 };
 const nav = [
- ['overview','Tổng quan','ĐIỀU HÀNH'],['inventory','Hàng hóa'],['receipts','Nhập kho'],['dispatches','Xuất kho'],['suppliers','Nhà cung cấp'],
+ ['overview','Tổng quan','ĐIỀU HÀNH'],['inventory','Sản phẩm'],['receipts','Nhập kho'],['dispatches','Xuất kho'],['suppliers','Nhà cung cấp'],
  ['customers','Khách hàng','QUẢN LÝ'],['employees','Nhân viên & ca làm'],['returns','Đổi hàng'],['sales','Hóa đơn & doanh thu'],['audit','Nhật ký thao tác']
 ];
 let app, view, renderToken = 0, toastTimer;
@@ -167,7 +167,7 @@ const M = window.AtinoManager = {
 function buildShell(){
  if(app)return;
  app=document.createElement('div');app.id='manager-app';app.className='am';app.hidden=true;
- app.innerHTML=`<button type="button" class="am-nav-scrim" data-am-nav-close aria-label="Đóng menu"></button><aside class="am-sidebar"><div class="am-brand"><span class="am-brand-symbol">A</span><div><strong>ATINO</strong><span>Quản lý</span></div></div><nav class="am-navigation" aria-label="Quản lý cửa hàng">${nav.map(([route,title,group])=>`${group?`<div class="am-nav-group">${group}</div>`:''}<button type="button" data-am-route="${route}">${M.icon(route)}<span>${e(title)}</span></button>`).join('')}</nav><div class="am-sidebar-bottom"><span class="am-local-label">${M.icon('info')} Dữ liệu minh họa</span><button class="am-logout" type="button" data-am-logout>${M.icon('logout')}<span>Đăng xuất</span></button></div></aside><div class="am-workspace"><header class="am-topbar"><div class="am-topbar-left"><button type="button" class="am-icon-btn am-mobile-menu" data-am-nav-toggle aria-label="Mở menu" aria-expanded="false">${M.icon('menu')}</button><div class="am-breadcrumb"><span>Quản lý cửa hàng</span>${M.icon('chevron')}<strong data-am-breadcrumb>Tổng quan</strong></div></div><div class="am-topbar-right"><span class="am-top-date">${M.icon('calendar')}<span>${e(M.date(M.today()))}</span></span><button type="button" class="am-icon-btn" data-am-refresh title="Cập nhật số liệu" aria-label="Cập nhật số liệu">${M.icon('refresh')}</button><div class="am-user"><button type="button" class="am-avatar atino-avatar-button" data-am-avatar aria-label="Tài khoản" title="Tài khoản">QL</button><div><strong data-am-user>Quản lý</strong><span>Quản lý cửa hàng</span></div></div></div></header><main class="am-main"><div class="am-page-heading"><div><h1 data-am-title>Tổng quan cửa hàng</h1></div></div><div id="am-content" aria-live="polite"></div><footer class="am-footer"><span>ATINO · Hệ thống quản lý cửa hàng</span><span>Giờ Việt Nam · GMT+7</span></footer></main></div><div class="am-toast" role="status" hidden></div>`;
+ app.innerHTML=`<button type="button" class="am-nav-scrim" data-am-nav-close aria-label="Đóng menu"></button><aside class="am-sidebar"><div class="am-brand"><span class="am-brand-symbol"><svg aria-hidden="true" viewBox="0 0 40 42"><path fill="currentColor" fill-rule="evenodd" d="M17.8 2h4.3L39 40h-6.1L19.2 9.9 13.2 29h10.2l2.1 4.6H11.7L9.6 40H5l2.3-6.4H2l1.8-4.6h5.1z"/></svg></span><div><strong>ATINO</strong><span>Quản lý</span></div></div><nav class="am-navigation" aria-label="Quản lý cửa hàng">${nav.map(([route,title,group])=>`${group?`<div class="am-nav-group">${group}</div>`:''}<button type="button" data-am-route="${route}">${M.icon(route)}<span>${e(title)}</span></button>`).join('')}</nav><div class="am-sidebar-bottom"><button class="am-logout" type="button" data-am-logout>${M.icon('logout')}<span>Đăng xuất</span></button></div></aside><div class="am-workspace"><header class="am-topbar"><div class="am-topbar-left"><button type="button" class="am-icon-btn am-mobile-menu" data-am-nav-toggle aria-label="Mở menu" aria-expanded="false">${M.icon('menu')}</button><div class="am-breadcrumb"><span>Quản lý cửa hàng</span>${M.icon('chevron')}<strong data-am-breadcrumb>Tổng quan</strong></div></div><div class="am-topbar-right"><span class="am-top-date">${M.icon('calendar')}<span>${e(M.date(M.today()))}</span></span><button type="button" class="am-icon-btn" data-am-refresh title="Cập nhật số liệu" aria-label="Cập nhật số liệu">${M.icon('refresh')}</button><div class="am-user"><button type="button" class="am-avatar atino-avatar-button" data-am-avatar aria-label="Tài khoản" title="Tài khoản">QL</button><div><strong data-am-user>Quản lý</strong><span>Quản lý cửa hàng</span></div></div></div></header><main class="am-main"><div class="am-page-heading"><div><h1 data-am-title>Tổng quan cửa hàng</h1></div></div><div id="am-content" aria-live="polite"></div><footer class="am-footer"><span>ATINO · Hệ thống quản lý cửa hàng</span><span>Giờ Việt Nam · GMT+7</span></footer></main></div><div class="am-toast" role="status" hidden></div>`;
  document.body.append(app);view=app.querySelector('#am-content');
  app.addEventListener('click',event=>{
   const link=event.target.closest('[data-invoice-id]');
@@ -225,7 +225,7 @@ function revenueChart(buckets){
   markup+=`<rect x="${x}" y="${value?y:top+plotH-2}" width="${barWidth}" height="${value?Math.max(barH,2):2}" rx="3" fill="${value?'url(#am-chart-fill)':'#e7eaf3'}"><title>${e(bucket.label)}: ${e(M.money(value))}</title></rect>`;
   if(i%labelStep===0||i===values.length-1){let label=String(bucket.label);if(/^\d{4}-\d{2}-\d{2}$/.test(label))label=label.slice(-2);else if(/^\d{4}-\d{2}$/.test(label))label='T'+Number(label.slice(-2));markup+=`<text x="${x+barWidth/2}" y="${height-12}" text-anchor="middle" fill="#596a80" font-size="16">${e(label)}</text>`;}
  });
- return `<div class="am-chart"><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Biểu đồ doanh thu ${e(M.periodValue)}; tổng ${e(M.money(values.reduce((s,b)=>s+n(b.value),0)))}"><defs><linearGradient id="am-chart-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5363e6"/><stop offset="1" stop-color="#8794f1"/></linearGradient></defs>${markup}</svg>${!highest?'<span class="am-chart-empty">Chưa có doanh thu trong kỳ này</span>':''}</div>`;
+ return `<div class="am-chart"><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Biểu đồ doanh thu ${e(M.periodValue)}; tổng ${e(M.money(values.reduce((s,b)=>s+n(b.value),0)))}"><defs><linearGradient id="am-chart-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#484850"/><stop offset="1" stop-color="#9696a2"/></linearGradient></defs>${markup}</svg>${!highest?'<span class="am-chart-empty">Chưa có doanh thu trong kỳ này</span>':''}</div>`;
 }
 function overviewToolbar() {
  const inputType = M.period === 'month' ? 'month' : M.period === 'year' ? 'number' : 'date';
@@ -479,11 +479,6 @@ M.register('overview',{
     <section class="am-panel am-revenue-panel">
      <div class="am-panel-head"><h2>Biểu đồ doanh thu</h2></div>
      ${revenueChart(s.buckets)}
-     <button type="button" class="am-attention am-exchange-overview" data-overview-view="exchange" aria-haspopup="dialog">
-      <span class="am-attention-icon blue">${M.icon('returns')}</span>
-      <span><strong>Giao dịch đổi hàng</strong><small>${number.format(s.exchangeCount)} phiếu · Thu chênh lệch ${M.money(s.exchangePaid)}</small></span>
-      ${M.icon('chevron')}
-     </button>
     </section>
     ${renderAttention(issues)}
    </div>
@@ -615,7 +610,7 @@ function updateInventoryRows(root){
  root.querySelector('#am-inventory-count').textContent=number.format(filteredProducts().length)+' sản phẩm';
  bindInventoryRows(results);
 }
-function editProduct(code){
+function editProduct(code,onCreated){
  const product=M.data.products.find(row=>row.code===code)||{};
  const cats=[...new Set([...(ERP.categories||window.AtinoCatalog?.categories||['Áo phông','Áo polo','Quần âu','Quần jean','Áo khoác','Túi / Balo','Giày / Dép','Mũ']),...M.data.products.map(row=>row.category)])];
  const chosenCategory=product.category||cats[0];
@@ -634,7 +629,7 @@ function editProduct(code){
   return `<label class="am-field">${label}${control}</label>`;
  }).join('');
  const selectedValues=form=>[...form.querySelectorAll('[data-size-choice]:checked')].map(input=>input.value);
- M.dialog({title:code?'Chỉnh sửa sản phẩm · '+code:'Thêm sản phẩm',wide:true,body:`<div class="am-form-grid"><label class="am-field am-span-2">Tên sản phẩm<input name="name" required maxlength="120" value="${e(product.name)}" placeholder="Tên sản phẩm"></label><label class="am-field">Danh mục<select name="category">${cats.map(cat=>`<option ${cat===chosenCategory?'selected':''}>${e(cat)}</option>`).join('')}</select></label><label class="am-field">Giá bán (đ)<input type="number" name="price" min="1" max="1000000000" step="1" required value="${product.price||''}"></label><fieldset class="am-size-picker am-span-2"><legend>Kích cỡ</legend><div class="am-size-options" data-size-options>${choicesHtml(chosenCategory)}</div><label class="am-check am-size-other-toggle"><input type="checkbox" name="customSizesEnabled"> Kích cỡ khác</label><label class="am-field" data-custom-sizes-field hidden>Tên kích cỡ<input name="customSizes" maxlength="1200" disabled placeholder="XS, XXXL, 45"></label></fieldset><label class="am-field am-span-2">Ảnh sản phẩm<input type="file" name="productImage" accept="image/jpeg,image/png,image/webp"></label>${product.image?'<label class="am-check am-span-2"><input type="checkbox" name="removeImage"> Xóa ảnh sản phẩm</label>':''}<label class="am-field am-span-2">Mô tả<textarea name="description" rows="3" maxlength="1000">${e(product.description)}</textarea></label><details class="am-span-2"><summary>Thông tin trên tem</summary><div class="am-form-grid">${labelFields}</div></details><label class="am-check am-span-2"><input type="checkbox" name="active" ${product.active!==false?'checked':''}> Đang kinh doanh</label></div>`,onOpen:form=>{
+ M.dialog({title:code?'Chỉnh sửa sản phẩm · '+code:'Thêm sản phẩm',wide:true,body:`<div class="am-form-grid"><label class="am-field am-span-2">Tên sản phẩm<input name="name" required maxlength="120" value="${e(product.name)}" placeholder="Tên sản phẩm"></label><label class="am-field">Danh mục<select name="category">${cats.map(cat=>`<option ${cat===chosenCategory?'selected':''}>${e(cat)}</option>`).join('')}</select></label><label class="am-field">Giá bán (đ)<input type="number" name="price" min="1" max="1000000000" step="1" required value="${product.price||''}"></label><fieldset class="am-size-picker am-span-2"><legend>Kích cỡ</legend><div class="am-size-options" data-size-options>${choicesHtml(chosenCategory)}</div><label class="am-check am-size-other-toggle"><input type="checkbox" name="customSizesEnabled"> Kích cỡ khác</label><label class="am-field" data-custom-sizes-field hidden>Tên kích cỡ<input name="customSizes" maxlength="1200" disabled placeholder="XS, XXXL, 45"></label></fieldset><label class="am-field am-span-2">Ảnh sản phẩm<input type="file" name="productImage" accept="image/jpeg,image/png,image/webp"></label>${product.image?'<label class="am-check am-span-2"><input type="checkbox" name="removeImage"> Xóa ảnh sản phẩm</label>':''}<label class="am-field am-span-2">Mô tả<textarea name="description" rows="3" maxlength="1000">${e(product.description)}</textarea></label><details class="am-span-2"><summary>Thông tin trên tem</summary><div class="am-form-grid">${labelFields}</div></details><label class="am-check am-span-2"><input type="checkbox" name="active" ${onCreated?'disabled':''} ${product.active!==false?'checked':''}> Đang kinh doanh</label></div>`,onOpen:form=>{
   const host=form.querySelector('[data-size-options]'),custom=form.elements.customSizes,customToggle=form.elements.customSizesEnabled;
   host.addEventListener('change',()=>{selectedSizes=new Set(selectedValues(form));categorySelections.set(currentCategory,new Set(selectedSizes));});
   form.elements.category.addEventListener('change',()=>{
@@ -661,8 +656,10 @@ function editProduct(code){
   const image=form.elements.productImage.files[0];
   if(image) fields.image=await window.AtinoImages.thumbnail(image,640);
   else if(form.elements.removeImage?.checked) fields.image='';
-  await ERP.saveProduct(fields);
-  await M.refresh();M.toast(code?'Đã cập nhật sản phẩm.':'Đã thêm sản phẩm.');
+  const savedCode=await ERP.saveProduct(fields);
+  await M.refresh();
+  if(onCreated)onCreated(savedCode);
+  M.toast(code?'Đã cập nhật sản phẩm.':'Đã thêm sản phẩm.');
  }});
 }
 function manageReceiptProducts(){
@@ -676,6 +673,7 @@ function manageReceiptProducts(){
  });
 }
 M.manageReceiptProducts=manageReceiptProducts;
+M.createReceiptProduct=onCreated=>editProduct(undefined,onCreated);
 function productDocumentTable(docs,code){
  const types={receipt:'Nhập kho',dispatch:'Xuất kho',transfer:'Điều chuyển cũ',restock:'Nhập lại hàng',sale:'Bán hàng',exchange:'Đổi hàng'};
  const units=items=>(items||[]).reduce((sum,item)=>sum+(item.code===code?n(item.qty):0),0);
@@ -733,7 +731,7 @@ function showProduct(code){
 M.showStoreQuantities = showStoreQuantities;
 M.showProduct = showProduct;
 M.register('inventory',{
- title:'Hàng hóa',
+ title:'Sản phẩm',
  render(){
  const figures=inventoryFigures();
  const total=M.data.stock.total;
@@ -743,8 +741,8 @@ M.register('inventory',{
   ${overviewCard('Số lượng trong cửa hàng',number.format(total),'stock','available','Xem số lượng theo sản phẩm')}
   ${overviewCard('Kích cỡ cần bổ sung',number.format(figures.lowSizes.length),'alert','low-sizes','Xem các kích cỡ còn ít hoặc đã hết')}
   ${overviewCard('Sản phẩm hết hàng',number.format(figures.empty.length),'inventory','sold-out','Xem sản phẩm đã hết mọi kích cỡ')}</div>
-  <section class="am-panel"><div class="am-panel-head"><div><h2>Danh sách hàng hóa</h2><p id="am-inventory-count">${number.format(filteredProducts().length)} sản phẩm</p></div>
-  <button type="button" class="am-btn secondary" id="am-stock-export">${M.icon('download')} Xuất danh sách hàng hóa</button></div>
+  <section class="am-panel"><div class="am-panel-head"><div><h2>Danh sách sản phẩm</h2><p id="am-inventory-count">${number.format(filteredProducts().length)} sản phẩm</p></div>
+  <button type="button" class="am-btn secondary" id="am-stock-export">${M.icon('download')} Xuất danh sách sản phẩm</button></div>
   <div class="am-toolbar am-filterbar"><label class="am-search">${M.icon('search')}<input type="search" id="am-stock-search" value="${e(inventoryFilters.search)}" placeholder="Tìm mã hoặc tên sản phẩm…" aria-label="Tìm sản phẩm"></label>
   <select id="am-stock-category" aria-label="Danh mục sản phẩm"><option value="">Tất cả danh mục</option>${cats.map(cat=>`<option value="${e(cat)}" ${inventoryFilters.category===cat?'selected':''}>${e(cat)}</option>`).join('')}</select></div>
   <div class="am-table-wrap" id="am-inventory-results">${inventoryRows()}</div></section>`;
@@ -753,7 +751,7 @@ M.register('inventory',{
  root.querySelectorAll('[data-overview-view]').forEach(button=>button.addEventListener('click',()=>showInventoryFigure(button.dataset.overviewView,inventoryFigures())));
  const input=root.querySelector('#am-stock-search');
  input.addEventListener('input',()=>{inventoryFilters.search=input.value;updateInventoryRows(root);});
- Search.attach(input,{items:()=>filteredProducts().map(product=>({value:product.name,label:product.name,detail:`${product.code} · ${product.category}`,searchText:[product.name,product.code,product.category]}))});
+ Search.attach(input,{items:()=>filteredProducts().map(product=>({value:product.code,label:product.name,detail:`${product.code} · ${product.category}`,searchText:[product.name,product.code,product.category]})),onSelect:item=>showProduct(item.value)});
  root.querySelector('#am-stock-category').addEventListener('change',event=>{inventoryFilters.category=event.target.value;updateInventoryRows(root);});
  root.querySelector('#am-stock-export').addEventListener('click',event=>{
   const sheets=Reports.inventorySheets(M.data,filteredProducts());
@@ -859,11 +857,20 @@ M.register('audit',{
    const person=event.target.closest('[data-audit-person]');
    if(person) M.showEmployeeProfile(person.dataset.auditPerson,person.textContent);
   });
+  const scopedRows=()=>(M.data.audit||[]).filter(row=>(!kind.value||auditKinds[kind.value].includes(row.action))&&(!day.value||ERP.today(row.when)===day.value));
+  const searchText=row=>[row.employeeId,row.employeeName,row.action,row.reference,row.detail,auditTime.format(row.when)];
+  let selectedRow=null;
+  Search.attach(query,{items:()=>scopedRows().map(row=>({
+   label:[row.employeeName,row.action].filter(Boolean).join(' · '),
+   value:row.reference||row.employeeId||row.action,
+   detail:[row.reference,row.employeeId,auditTime.format(row.when),row.detail].filter(Boolean).join(' · '),
+   row,searchText:searchText(row)
+  })),onSelect:item=>{selectedRow=item.row;draw();}});
   const draw=()=>{
-   const rows=(M.data.audit||[]).filter(row=>(!kind.value||auditKinds[kind.value].includes(row.action))&&(!day.value||ERP.today(row.when)===day.value)&&Search.match([row.employeeId,row.employeeName,row.action,row.reference,row.detail],query.value));
+   const rows=scopedRows().filter(row=>(!selectedRow||selectedRow===row)&&Search.match(searchText(row),query.value));
    results.innerHTML=rows.length?`<div class="am-table-wrap"><table class="am-table"><thead><tr><th>Thời điểm</th><th>Người thực hiện</th><th>Thao tác</th><th>Mã tham chiếu</th></tr></thead><tbody>${rows.map(row=>`<tr><td>${e(auditTime.format(row.when))}</td><td><button class="am-text-btn" type="button" data-audit-person="${e(row.employeeId)}">${e(row.employeeName)}</button><small class="am-unit">${e(row.employeeId)}</small></td><td>${e(row.action)}${row.detail?`<small class="am-unit">${e(row.detail)}</small>`:''}</td><td>${(documents.has(row.reference)||returnIds.has(row.reference))?`<button class="am-text-btn" type="button" data-audit-document="${e(row.reference)}">${e(row.reference)}</button>`:e(row.reference)}</td></tr>`).join('')}</tbody></table></div>`:M.empty('Chưa có thao tác phù hợp');
   };
-  query.addEventListener('input',draw);
+  query.addEventListener('input',()=>{selectedRow=null;draw();});
   day.addEventListener('change',draw);
   kind.addEventListener('change',draw);
   draw();

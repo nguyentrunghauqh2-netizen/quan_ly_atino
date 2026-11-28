@@ -3,7 +3,7 @@
 'use strict';
 const ERP=window.AtinoERP;
 const Search=window.AtinoSearch;
-Search.attach(byId('search'),{items:()=>currentUser?catalogProducts().map(product=>({value:product.name,label:product.name,detail:`${product.code} · ${product.category}`,searchText:[product.name,product.code,product.category]})):[]});
+Search.attach(byId('search'),{items:()=>currentUser?catalogProducts().map(product=>({value:product.code,label:product.name,detail:`${product.code} · ${product.category}`,searchText:[product.name,product.code,product.category]})):[],onSelect:item=>showDetail(item.value)});
 byId('search').placeholder='Gõ tên hoặc mã, ví dụ: áo / ao…';
 const baseAddLine=addLine;
 addLine=function(){

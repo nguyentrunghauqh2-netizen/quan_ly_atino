@@ -172,8 +172,8 @@
     ].join('\r\n');
   }
 
-  function openDraft({title = 'Soạn email cho khách hàng', email = '', subject = ''} = {}) {
-    dialog(title, field('Email người nhận', 'email', email, 'email', 'required maxlength="150"') +
+  function openDraft({title, subject}) {
+    dialog(title, field('Email người nhận', 'email', '', 'email', 'required maxlength="150"') +
       field('Tiêu đề', 'subject', subject, 'text', 'required maxlength="150"') +
       '<label>Nội dung<textarea class="field" name="body" rows="5" maxlength="4000" required></textarea></label>' +
       '<label>Ảnh đính kèm (tối đa 5 MB)<input class="field" type="file" name="attachment" accept="image/jpeg,image/png,image/webp"></label>',
@@ -195,5 +195,5 @@
   }
 
   byId('forgot-password').addEventListener('click', forgotPassword);
-  window.AtinoAccount = {open, openDraft, paintAvatar};
+  window.AtinoAccount = {open, paintAvatar};
 })();

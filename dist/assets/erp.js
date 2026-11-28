@@ -272,12 +272,18 @@
     shop.movements.push(doc);
     audit(shop,user,'Lập hóa đơn',doc.id);return {id:doc.id,total:q.total};
   },['manager','employee']);
+  function linkedExchangeIds(data, invoiceId) {
+    const ids = new Set();
+    for (const row of data.returns) if (row.invoiceId === invoiceId) ids.add(row.id);
+    for (const row of data.movements) if (row.exchangeOf === invoiceId) ids.add(row.id);
+    return [...ids];
+  }
   const editSale = input => access(true, (shop,user) => {
     const doc = shop.movements.find(row => row.type === 'sale' && row.id === input.id);
     if (!doc) fail('Không tìm thấy hóa đơn bán.');
     if ((doc.editRevision || 0) !== input.revision) fail('Hóa đơn vừa thay đổi. Mở lại để sửa.');
-    if (shop.returns.some(row => row.invoiceId === doc.id) || shop.movements.some(row => row.exchangeOf === doc.id))
-      fail('Hóa đơn đã có phiếu đổi nên được khóa để giữ đúng giá trị đổi.');
+    const linked = linkedExchangeIds(shop, doc.id);
+    if (linked.length) fail('Hóa đơn đang khóa. Hãy kiểm tra và xử lý phiếu đổi trả ' + linked.join(', ') + ' trước khi sửa.');
     const stock = stockMap({...shop,movements:shop.movements.filter(row => row !== doc)});
     const oldPrices = new Map(doc.items.map(row => [row.code,row.unitPrice]));
     const items = itemsFor(shop,input.lines,'sale',stock);
@@ -334,7 +340,7 @@
   const saveStockNote=(code,input)=>access(true,(shop,user)=>{
     if(!shop.products.some(p=>p.code===code))fail('Không tìm thấy sản phẩm.');shop.stockNotes[code]={reason:clean(input.reason,150),note:clean(input.note,1000),action:clean(input.action,300),threshold:int(input.threshold??2,'Ngưỡng sắp hết',0,100000),updatedAt:Date.now(),updatedBy:user.name};audit(shop,user,'Đánh giá hàng hóa',code);return {code};
   });
-  function phone(v) {const p=clean(v,30);if(p&&(!/^[+\d\s().-]{6,25}$/.test(p)||p.replace(/\D/g,'').length<6||p.replace(/\D/g,'').length>15))fail('Số điện thoại chưa hợp lệ.');return p;}
+  function phone(v) {const p=clean(v,30).replace(/[\s.-]/g,'');if(p&&!/^0\d{9}$/.test(p))fail('Số điện thoại gồm 10 chữ số, bắt đầu bằng 0.');return p;}
   function email(v) {const e=clean(v,150);if(e&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))fail('Địa chỉ email chưa hợp lệ.');return e;}
   const saveSupplier=input=>access(true,(shop,user)=>{
     if(input.id!=='NCC001')fail('Cửa hàng chỉ quản lý nhà cung cấp kho tổng.');
@@ -517,5 +523,5 @@
       stockValue, unknownCostUnits, pendingReceiptCount, uncostedReceiptUnits
     };
   }
-  window.AtinoERP={editSale,documentPeople,saleStaff,revenueEmployee,snapshot,checkoutData,categories:window.AtinoCatalog?.categories||Object.keys(CATEGORIES),sizesFor,unitFor,references:window.AtinoCatalog?.references||[],today:nowDay,money:n=>fmt.format(n||0),inventory:stockMap,summarizeStock,monthlyUnitsSold,stockThreshold,lowStockSizes,stockAttention,isInternalDestination,metrics,documentPaidTotal:paidTotal,paymentMethod,transactionStatus,salePaidItems,saveProduct,saveStockNote,saveSupplier,saveCustomer,saveEmployee,saveShift,deleteShift,saveSettings,saveStockDocument,previewReceipt,completeReceiptCost,quoteSale,saveSale,quoteExchange,saveExchange,employeeFields};
+  window.AtinoERP={linkedExchangeIds,editSale,documentPeople,saleStaff,revenueEmployee,snapshot,checkoutData,categories:window.AtinoCatalog?.categories||Object.keys(CATEGORIES),sizesFor,unitFor,references:window.AtinoCatalog?.references||[],today:nowDay,money:n=>fmt.format(n||0),inventory:stockMap,summarizeStock,monthlyUnitsSold,stockThreshold,lowStockSizes,stockAttention,isInternalDestination,metrics,documentPaidTotal:paidTotal,paymentMethod,transactionStatus,salePaidItems,saveProduct,saveStockNote,saveSupplier,saveCustomer,saveEmployee,saveShift,deleteShift,saveSettings,saveStockDocument,previewReceipt,completeReceiptCost,quoteSale,saveSale,quoteExchange,saveExchange,employeeFields};
 })();

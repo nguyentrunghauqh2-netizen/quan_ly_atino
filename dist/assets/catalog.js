@@ -11,7 +11,7 @@
 (() => {
   'use strict';
 
-  // Keep the first five names and their order: earlier demo records use indexes.
+  // Keep the first five names and their order: earlier saved records use indexes.
   const categories = Object.freeze([
     'Áo phông', 'Áo polo', 'Quần âu', 'Quần jean', 'Áo khoác',
     'Áo sơ mi', 'Quần short',

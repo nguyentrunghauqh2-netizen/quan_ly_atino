@@ -355,8 +355,9 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
     <link rel="stylesheet" href="assets/account.css?v=cadbdeb4eea4">
     <link rel="stylesheet" href="assets/manager.css?v=56b99992d177">
     <link rel="stylesheet" href="assets/employee.css?v=b67e02d641e5">
-    <link rel="stylesheet" href="assets/search.css">
-    <link rel="stylesheet" href="assets/login.css">
+    <link rel="stylesheet" href="assets/search.css?v=cdc4cdf723bd">
+    <link rel="stylesheet" href="assets/login.css?v=5f0c98f572af">
+    <link rel="stylesheet" href="assets/portal.css?v=2433fb3566bd">
 </head>
 <body class="font-sans text-gray-800 pb-24" data-page="login">
 
@@ -393,24 +394,16 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
     <main class="campus-shell min-h-screen px-3 md:px-6 py-4 md:py-6">
         <p id="notice" role="status" class="text-sm text-blue-800 empty:hidden mb-4"></p>
         <section id="login" class="page-content login-card card">
-            <aside class="al-brand-panel" aria-label="Atino · Quản lý cửa hàng">
-                <div class="al-brand"><span class="al-mark" aria-hidden="true">A</span><div><strong>ATINO</strong><span>Quản lý cửa hàng</span></div></div>
-                <div class="al-welcome"><h2>Quản lý cửa hàng</h2>
-                    <ul class="al-features"><li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 7 9-4 9 4-9 4-9-4Zm0 0v10l9 4 9-4V7M12 11v10"/></svg><span>Nhập và xuất hàng</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Zm3 5h6m-6 4h6"/></svg><span>Bán hàng và hóa đơn</span></li><li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 4v3"/></svg><span>Khách hàng và nhân sự</span></li></ul>
-                </div>
-                <p class="al-brand-foot">ATINO</p>
-            </aside>
             <div class="al-form-panel">
-                <div class="al-form-heading"><span class="al-eyebrow">Cửa hàng Atino</span><h1 id="login-title">Đăng nhập</h1></div>
+                <div class="al-form-heading"><svg class="al-logo" viewBox="0 0 40 42" aria-label="Atino" role="img"><path fill="currentColor" fill-rule="evenodd" d="M17.8 2h4.3L39 40h-6.1L19.2 9.9 13.2 29h10.2l2.1 4.6H11.7L9.6 40H5l2.3-6.4H2l1.8-4.6h5.1z"/></svg><h1 id="login-title">Đăng nhập</h1><p>Đăng nhập vào tài khoản của bạn</p></div>
                 <form id="login-form">
-                    <label class="al-field">Tên đăng nhập<input name="username" class="field" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="50" placeholder="Nhập tên đăng nhập" required></label>
-                    <label class="al-field" for="login-password">Mật khẩu</label><div class="al-password"><input id="login-password" name="password" class="field" type="password" autocomplete="current-password" maxlength="256" placeholder="Nhập mật khẩu" required><button type="button" id="login-password-toggle" aria-controls="login-password" aria-pressed="false" aria-label="Hiện mật khẩu">Hiện</button></div>
+                    <label class="al-field">Tên đăng nhập <span class="al-required" aria-hidden="true">*</span><input name="username" class="field" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="50" placeholder="Nhập tên đăng nhập" required></label>
+                    <label class="al-field" for="login-password">Mật khẩu <span class="al-required" aria-hidden="true">*</span></label><div class="al-password"><input id="login-password" name="password" class="field" type="password" autocomplete="current-password" maxlength="256" placeholder="Nhập mật khẩu" required><button type="button" id="login-password-toggle" aria-controls="login-password" aria-pressed="false" aria-label="Hiện mật khẩu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="al-slash" d="m3 3 18 18"/></svg></button></div>
+                    <button id="forgot-password" type="button" class="atino-account-link">Quên mật khẩu?</button>
                     <button id="login-submit" type="submit" class="primary w-full" disabled>Đăng nhập</button>
-                    <button id="forgot-password" type="button" class="atino-account-link">Quên mật khẩu</button>
                 </form>
                 <p id="login-status" role="status">Đang mở dữ liệu…</p>
                 <button id="retry-server" type="button" class="secondary" hidden>Thử lại</button>
-                <div class="al-demo-note"><span class="al-note-line"></span><p>Dữ liệu minh họa</p></div>
             </div>
         </section>
         <section id="home" class="page-content hidden card overview">
@@ -595,7 +588,7 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
         <div id="transfer-qr-panel" class="border-t py-3 text-center" hidden>
             <canvas id="payment-qr" class="block" role="img" aria-label="VietQR chuyển khoản theo tổng hóa đơn" hidden></canvas>
             <p id="payment-account" class="font-semibold text-blue-900"></p>
-            <p id="demo-qr-note" hidden class="text-sm mt-2">QR minh họa số tiền. Bạn có thể lưu hóa đơn thử ngay tại đây.</p>
+            <p id="demo-qr-note" hidden class="text-sm mt-2">Quét mã QR để chuyển khoản đúng số tiền của hóa đơn.</p>
         </div>
         <div class="flex flex-wrap gap-2 mt-3">
             <button type="button" id="edit-sale" class="secondary">Quay lại</button>
@@ -615,13 +608,13 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
         <div id="label-sheet" class="label-sheet"></div>
     </dialog>
     <section id="invoice-paper" aria-hidden="true"></section>
-    <script src="assets/catalog.js"></script>
+    <script src="assets/catalog.js?v=f5abae38a5b6"></script>
     <script src="assets/product-labels.js?v=dd9885ef42a0"></script>
     <script src="assets/images.js?v=712c626777ee"></script>
-    <script src="assets/account-store.js?v=8409a2bd89e8"></script>
-    <script src="assets/erp.js?v=c65dc5cf04d2"></script>
-    <script src="assets/demo-seed.js?v=7cda703c4d10"></script>
-    <script src="assets/search.js"></script>
+    <script src="assets/account-store.js?v=070f7da5c06a"></script>
+    <script src="assets/erp.js?v=f747633d3d66"></script>
+    <script src="assets/demo-seed.js?v=4c33ca284a51"></script>
+    <script src="assets/search.js?v=54d003735e9e"></script>
     <script>
 // QRCode for JavaScript by Kazuhiko Arase. See qr-code-license.txt.
 window.createLabelQr = (() => {
@@ -1994,7 +1987,7 @@ window.AtinoDemo = (() => {
                     resolve(null);
                 } else {
                     opening = null;
-                    reject(new Error('Trình duyệt chưa mở được dữ liệu thử. Hãy tải lại trang.'));
+                    reject(new Error('Trình duyệt chưa mở được dữ liệu cửa hàng. Hãy tải lại trang.'));
                 }
             };
         });
@@ -2033,7 +2026,7 @@ window.AtinoDemo = (() => {
                 } catch (error) { failure = error; tx.abort(); }
             };
             tx.oncomplete = () => resolve(result);
-            tx.onabort = () => reject(failure || new Error('Không lưu được dữ liệu thử trên trình duyệt. Kiểm tra dung lượng và thử lại.'));
+            tx.onabort = () => reject(failure || new Error('Không lưu được dữ liệu cửa hàng trên trình duyệt. Kiểm tra dung lượng và thử lại.'));
         });
     }
 
@@ -2081,7 +2074,7 @@ window.AtinoDemo = (() => {
         const name = String(data.username || '').trim().toLowerCase().normalize('NFC');
         const saved = await access(false,shop => shop.staff.find(person => person.username === name && person.active));
         if (!saved?.hash || typeof data.password !== 'string' || await passwordHash(data.password,saved.salt) !== saved.hash) {
-            fail('Tên đăng nhập hoặc mật khẩu thử chưa đúng.',401);
+            fail('Tên đăng nhập hoặc mật khẩu chưa đúng.',401);
         }
         const row = await access(true,shop => {
             const latest = shop.staff.find(person => person.code === saved.code);
@@ -2109,7 +2102,7 @@ window.AtinoDemo = (() => {
             let row;
             if (code) {
                 row = shop.staff.find(entry => entry.code === code);
-                if (!row || row.username !== username) fail('Không tìm thấy tài khoản thử phù hợp.');
+                if (!row || row.username !== username) fail('Không tìm thấy tài khoản phù hợp.');
                 if (user.code === code && (!data.active || data.role !== 'manager')) fail('Tài khoản quản lý đang sử dụng phải tiếp tục hoạt động với quyền quản lý.');
                 if (row.role !== data.role || !data.active || password) row.revision++;
             } else {
@@ -2234,7 +2227,7 @@ window.AtinoDemo = (() => {
             if (tabSession) {
                 try { user=publicAccount(actor(shop)); } catch { remember(null); }
             }
-            return {user,database:inMemory?'Dùng thử · dữ liệu trong tab':'Dùng thử · dữ liệu trên trình duyệt'};
+            return {user,database:inMemory?'Dữ liệu trong tab':'Dữ liệu trên trình duyệt'};
         });
         if (route==='login') return login(data);
         if (route==='logout') { remember(null); return {ok:true}; }
@@ -2263,7 +2256,7 @@ window.AtinoDemo = (() => {
             doc.lastPrintedAt=Date.now();
             return {state:view(shop,person)};
         });
-        fail('Thao tác dùng thử chưa hợp lệ.',404);
+        fail('Thao tác chưa hợp lệ.',404);
     }
     return {api, transact:(change,callback,allowedRoles=['manager'])=>access(change,shop=>callback(shop,publicAccount(actor(shop,allowedRoles))))};
 })();
@@ -2363,7 +2356,6 @@ function signOutView(message='') {
     for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close();
     for (const form of document.querySelectorAll('form')) form.reset();
     byId('login-password').type = 'password';
-    byId('login-password-toggle').textContent = 'Hiện';
     byId('login-password-toggle').setAttribute('aria-pressed','false');
     byId('login-password-toggle').setAttribute('aria-label','Hiện mật khẩu');
     ['main-nav','account-bar','sell-fab','report-output'].forEach(id => byId(id).hidden = true);
@@ -2415,13 +2407,13 @@ async function navigate(id) {
 
 async function checkServer() {
     const status = byId('login-status');
-    status.textContent = window.AtinoDemo ? 'Đang mở dữ liệu thử…' : 'Đang kiểm tra kết nối…';
+    status.textContent = window.AtinoDemo ? 'Đang mở dữ liệu cửa hàng…' : 'Đang kiểm tra kết nối…';
     byId('login-submit').disabled = true;
     byId('retry-server').hidden = true;
     try {
         const info = await api('session');
         databaseName = info.database;
-        status.textContent = window.AtinoDemo ? (databaseName.includes('trong tab') ? 'Dữ liệu thử chỉ được giữ trong tab này.' : '') : 'Cơ sở dữ liệu · ' + databaseName;
+        status.textContent = window.AtinoDemo ? (databaseName.includes('trong tab') ? 'Dữ liệu cửa hàng chỉ được giữ trong tab này.' : '') : 'Cơ sở dữ liệu · ' + databaseName;
         status.dataset.error = 'false';
         byId('login-submit').disabled = false;
         if (info.user) await enterStore(info.user);
@@ -2642,7 +2634,6 @@ function startWorkspace() {
         const input = byId('login-password'), button = byId('login-password-toggle');
         const visible = input.type === 'password';
         input.type = visible ? 'text' : 'password';
-        button.textContent = visible ? 'Ẩn' : 'Hiện';
         button.setAttribute('aria-pressed',String(visible));
         button.setAttribute('aria-label',visible ? 'Ẩn mật khẩu' : 'Hiện mật khẩu');
     });
@@ -3101,16 +3092,7 @@ async function printInvoice(button) {
         state = result.state;
         sale = state.movements.find(item => item.type === 'sale' && item.id === id);
         const printedAt = sale.lastPrintedAt;
-        byId('invoice-paper').innerHTML = `
-            <h1 class="heading">Cửa hàng thời trang Atino</h1>
-            <p><strong>Hóa đơn ${escapeHtml(sale.id)}</strong></p>
-            <p>Giờ lập: ${Number.isFinite(sale.when) ? date.format(sale.when) : '—'}</p>
-            <p>Giờ in: ${date.format(printedAt)}</p>
-            <p>Thanh toán: ${escapeHtml(sale.method || sale.note || '—')}</p>${window.AtinoERP.documentPeople(sale).map(([label,value])=>`<p>${escapeHtml(label)}: ${escapeHtml(value)}</p>`).join('')}
-            <table class="w-full my-3"><thead><tr><th>Sản phẩm</th><th>Size</th><th>SL</th><th>Đơn giá</th><th>Thực trả</th></tr></thead>
-            <tbody>${sale.items.map(item => `<tr><td>${escapeHtml(item.name)}<small class="invoice-item-code">${escapeHtml(item.code)}</small></td><td>${escapeHtml(item.size ?? legacySize)}</td><td>${item.qty}</td>
-                <td>${money.format(item.unitPrice)}</td><td>${money.format(item.paidTotal ?? item.qty * item.unitPrice)}</td></tr>`).join('')}</tbody></table>
-            <p><strong>Thực thu: ${money.format(saleTotal(sale))}</strong></p>`;
+        byId('invoice-paper').innerHTML = window.AtinoDocuments.saleReceiptHtml(sale, {staff: state.staff || [], customers: state.customers || []});
         document.body.classList.add('printing-invoice');
         window.print();
         if (page === 'sales') {
@@ -3521,7 +3503,7 @@ function openPayment(method, lines) {
     byId('payment-total').textContent = 'Cần thu: ' + money.format(total);
     byId('payment-error').textContent = '';
     const transfer = method === 'Chuyển khoản';
-    if (window.AtinoDemo) byId('confirm-sale').textContent = 'Lưu hóa đơn thử';
+    if (window.AtinoDemo) byId('confirm-sale').textContent = 'Lưu hóa đơn';
     const qr = byId('payment-qr');
     const confirm = byId('confirm-sale');
     byId('transfer-qr-panel').hidden = !(transfer && transferAccount);
@@ -3648,15 +3630,16 @@ window.addEventListener('afterprint', () => document.body.classList.remove('prin
 labelsDialog.addEventListener('close', () => document.body.classList.remove('printing-labels'));
 
     </script>
-<script src="assets/vendor/jszip-3.10.1.min.js"></script>
+<script src="assets/vendor/jszip-3.10.1.min.js?v=acc7e41455a8"></script>
 <script src="assets/workbook.js?v=6bd7a611a23a"></script>
 <script src="assets/report-export.js?v=83c5a399e49b"></script>
-<script src="assets/manager-shell.js?v=af9f18e56c3b"></script>
-<script src="assets/manager-people.js?v=574570be1512"></script>
-<script src="assets/manager-operations.js?v=17718b530aae"></script>
-<script src="assets/integration.js?v=e6ca9d36351c"></script>
-<script src="assets/account-ui.js?v=01f0bfe57187"></script>
-<script src="assets/employee-shell.js?v=2ea1134cb3cc"></script>
+<script src="assets/documents.js?v=a0ef56325845"></script>
+    <script src="assets/manager-shell.js?v=c0102ac3b769"></script>
+<script src="assets/manager-people.js?v=297e0d8e2775"></script>
+<script src="assets/manager-operations.js?v=f0765637be55"></script>
+<script src="assets/integration.js?v=9cd7967b3e78"></script>
+<script src="assets/account-ui.js?v=c5b448aee371"></script>
+<script src="assets/employee-shell.js?v=f86214d108a6"></script>
 <script>startWorkspace();</script>
 <script type="text/plain" id="third-party-licenses">qr-code-license.txt
 QRCode for JavaScript

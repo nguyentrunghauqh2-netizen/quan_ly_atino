@@ -20,7 +20,8 @@
 
     function saveProfile(data) {
       const name = String(data.name ?? '').trim();
-      const phone = String(data.phone ?? '').trim().slice(0, 25);
+      const phone = String(data.phone ?? '').trim().replace(/[\s.-]/g, '');
+      if (phone && !/^0\d{9}$/.test(phone)) fail('Số điện thoại gồm 10 chữ số, bắt đầu bằng 0.');
       const email = String(data.email ?? '').trim().slice(0, 150);
       const address = String(data.address ?? '').trim().slice(0, 300);
       const birthday = String(data.birthday ?? '').trim();

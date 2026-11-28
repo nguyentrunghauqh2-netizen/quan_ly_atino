@@ -29,6 +29,7 @@ quan_ly_atino/
 │   ├── erd-atino.png                 # Sơ đồ chi tiết 14 bảng & thuộc tính (thuần tiếng Việt)
 │   └── HUONG-DAN-VAN-DAP.md          # Giải thích kiến trúc & thuật toán dễ học để vấn đáp
 ├── dist/                             # Mã nguồn Frontend tĩnh (HTML, CSS, JS thuần)
+│   └── assets/documents.js           # Mẫu Hóa đơn Nhập / Xuất (chuyển kho) và Hóa đơn bán hàng (bản in có QR)
 └── backend/                          # (Dành cho Agent triển khai Backend Python Flask + MySQL)
 ```
 

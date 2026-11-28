@@ -173,7 +173,7 @@
       const viewportWidth = viewport ? viewport.width : doc.documentElement.clientWidth;
       const viewportHeight = viewport ? viewport.height : global.innerHeight;
       const margin = 10;
-      const gap = 7;
+      const gap = 3;
       const rightEdge = leftEdge + viewportWidth;
       const bottomEdge = topEdge + viewportHeight;
       if (rect.bottom < topEdge || rect.top > bottomEdge ||
@@ -181,19 +181,14 @@
         hide();
         return;
       }
-      const width = Math.max(0, Math.min(Math.max(rect.width, 300), viewportWidth - margin * 2));
+      const width = Math.max(0, Math.min(rect.width, viewportWidth - margin * 2));
       const left = Math.max(leftEdge + margin, Math.min(rect.left, rightEdge - width - margin));
       const below = Math.max(0, bottomEdge - rect.bottom - gap - margin);
-      const above = Math.max(0, rect.top - topEdge - gap - margin);
-      const upwards = below < 230 && above > below;
-      const available = upwards ? above : below;
-      const maxHeight = Math.max(0, Math.min(410, available));
+      const maxHeight = Math.min(224, below);
       popup.style.width = width + 'px';
       popup.style.left = left + 'px';
       popup.style.maxHeight = maxHeight + 'px';
-      popup.dataset.placement = upwards ? 'top' : 'bottom';
-      popup.style.top = upwards ? Math.max(topEdge + margin, rect.top - gap - popup.offsetHeight) + 'px'
-        : (rect.bottom + gap) + 'px';
+      popup.style.top = (rect.bottom + gap) + 'px';
     }
 
     function activate(index) {
@@ -230,7 +225,7 @@
     function refresh() {
       if (destroyed || suppressInput || composing) return controller;
       const query = normalize(input.value);
-      if (!query || !input.isConnected || doc.activeElement !== input || input.disabled) {
+      if (!input.isConnected || doc.activeElement !== input || input.disabled) {
         if (active === controller) hide();
         return controller;
       }
@@ -246,15 +241,6 @@
 
       popup = element('div', 'atino-suggest-popover');
       popup.setAttribute('data-atino-suggestions', '');
-      const header = element('div', 'atino-suggest-header');
-      header.appendChild(element('span', 'atino-suggest-heading', 'Gợi ý tìm kiếm'));
-      const count = element('span', 'atino-suggest-count');
-      count.setAttribute('role', 'status');
-      count.setAttribute('aria-live', 'polite');
-      count.setAttribute('aria-atomic', 'true');
-      header.appendChild(count);
-      popup.appendChild(header);
-
       list = element('div', 'atino-suggest-list');
       list.id = listId;
       list.setAttribute('role', 'listbox');
@@ -264,16 +250,10 @@
         row.id = listId + '-option-' + index;
         row.setAttribute('role', 'option');
         row.setAttribute('aria-selected', 'false');
-        const icon = element('span', 'atino-suggest-icon');
-        icon.setAttribute('aria-hidden', 'true');
         const copy = element('span', 'atino-suggest-copy');
         copy.appendChild(element('span', 'atino-suggest-label', item.label || item.value));
         if (item.detail) copy.appendChild(element('span', 'atino-suggest-detail', asText(item.detail)));
-        row.appendChild(icon);
         row.appendChild(copy);
-        const enter = element('span', 'atino-suggest-enter', '↵');
-        enter.setAttribute('aria-hidden', 'true');
-        row.appendChild(enter);
         row.addEventListener('pointerdown', function (event) { event.preventDefault(); });
         row.addEventListener('click', function (event) {
           event.preventDefault();
@@ -292,21 +272,16 @@
         empty.appendChild(element('strong', '', 'Chưa tìm thấy kết quả'));
         popup.appendChild(empty);
       }
-      const footer = element('div', 'atino-suggest-footer');
-      if (matches.length > results.length) {
-        footer.appendChild(element('span', '', 'Hiện ' + results.length + '/' + matches.length));
-      }
-      const keys = element('span', 'atino-suggest-keys', '↑↓ Chọn · Enter');
-      keys.setAttribute('aria-hidden', 'true');
-      if (results.length) footer.appendChild(keys);
-      if (footer.childElementCount) popup.appendChild(footer);
-
       controller.popup = popup;
       controller.dialog = dialog;
       active = controller;
       (dialog || doc.body).appendChild(popup);
       input.setAttribute('aria-expanded', 'true');
-      count.textContent = matches.length + ' kết quả';
+      const viewport = global.visualViewport;
+      const bottom = viewport ? viewport.offsetTop + viewport.height : global.innerHeight;
+      if (bottom - input.getBoundingClientRect().bottom < 150) {
+        input.scrollIntoView({block: 'center', inline: 'nearest', behavior: 'instant'});
+      }
       position();
       return controller;
     }
@@ -329,7 +304,6 @@
         if (active !== controller && normalize(input.value)) refresh();
         if (active === controller && results.length) choose(results[selected < 0 ? 0 : selected]);
       } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-        if (!normalize(input.value)) return;
         event.preventDefault();
         event.stopPropagation();
         if (active !== controller) refresh();
@@ -347,7 +321,7 @@
       }
     }
 
-    const listeners = { input: onInput, search: onInput, focus: onFocus, blur: onBlur,
+    const listeners = { input: onInput, search: onInput, focus: onFocus, click: () => { if (!popup) refresh(); }, blur: onBlur,
       keydown: onKeyDown, compositionstart: onCompositionStart, compositionend: onCompositionEnd };
     Object.keys(listeners).forEach(function (name) { input.addEventListener(name, listeners[name]); });
 

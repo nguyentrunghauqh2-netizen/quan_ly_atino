@@ -1,0 +1,139 @@
+/* Shared portal surfaces for the store, manager and checkout workspaces. */
+:root {
+  --portal-ink: #192f45;
+  --portal-muted: #516576;
+  --portal-line: #d3e0eb;
+  --portal-canvas: #f4f7fb;
+  --portal-wash: linear-gradient(155deg, #e8f0fc 0, #f4f7fb 440px);
+  --portal-nav: #163459;
+  --portal-nav-text: #deebfa;
+  --portal-nav-muted: #b3c8e1;
+  --portal-accent: #1758a0;
+  --portal-ocean: #2164b3;
+  --portal-ocean-dark: #154d8e;
+  --portal-font: Inter, "Segoe UI", system-ui, sans-serif;
+}
+body:not([data-page="login"]), #manager-app, #employee-app, .atino-account-dialog {
+  font-family: var(--portal-font);
+  color: var(--portal-ink);
+}
+body:not([data-page="login"]) { background: var(--portal-canvas); --blue: var(--portal-ocean); --blue-dark: var(--portal-ocean-dark); --ink: var(--portal-ink); --muted: var(--portal-muted); }
+#manager-app, #employee-app {
+  --am-bg: var(--portal-canvas);
+  --am-text: var(--portal-ink);
+  --am-muted: var(--portal-muted);
+  --am-border: var(--portal-line);
+  --am-sidebar: var(--portal-nav);
+  --am-primary: var(--portal-ocean);
+  --am-primary-dark: var(--portal-ocean-dark);
+  --ae-text: var(--portal-ink);
+  --ae-muted: var(--portal-muted);
+  --ae-border: var(--portal-line);
+  --ae-primary: var(--portal-ocean);
+  background: var(--portal-wash);
+}
+#manager-app .am-sidebar, #employee-app .ae-sidebar {
+  background: linear-gradient(165deg, var(--portal-nav), #112944);
+  color: var(--portal-ink);
+  border-right: 1px solid var(--portal-line);
+  padding-top: 22px;
+}
+#manager-app .am-brand, #employee-app .ae-brand { padding-bottom: 21px; }
+#manager-app .am-brand-symbol, #employee-app .ae-mark {
+  width: 36px; height: 36px; border: 0; border-radius: 9px; background: #294f7c; color: white;
+}
+.am-brand-symbol svg, .ae-mark svg { height: 21px; width: 21px; }
+#manager-app .am-brand strong, #employee-app .ae-brand strong { color: white; font-size: 17px; letter-spacing: .12em; }
+#manager-app .am-brand div>span, #employee-app .ae-brand div>span { color: var(--portal-nav-muted); margin-top: 3px; font-size: 12px; }
+#manager-app .am-nav-group, #employee-app .ae-nav-label { color: var(--portal-nav-muted); font-size: 12px; font-weight: 600; letter-spacing: .025em; }
+#manager-app .am-navigation, #employee-app nav { gap: 3px; }
+#manager-app .am-navigation button, #employee-app nav button { color: var(--portal-nav-text); border-radius: 7px; min-height: 38px; padding: 8px 11px; align-items: center; font-size: 14px; }
+#manager-app .am-navigation button svg, #employee-app nav button svg { color: var(--portal-nav-muted); width: 17px; height: 17px; margin: 0; }
+#manager-app .am-navigation button:hover, #employee-app nav button:hover { background: #24466d; color: white; }
+#manager-app .am-navigation button.active, #employee-app nav button.active { background: #2c527e; color: white; font-weight: 650; box-shadow: inset 3px 0 #91c7ff; }
+#manager-app .am-navigation button.active svg, #employee-app nav button.active svg { color: white; }
+#manager-app .am-sidebar-bottom, #employee-app .ae-sidebar-footer { border-top: 1px solid #35516e; padding: 12px 10px 0; }
+#manager-app .am-logout, #employee-app .ae-sidebar-footer button { color: var(--portal-nav-text); margin: 0; }
+#manager-app .am-logout:hover, #employee-app .ae-sidebar-footer button:hover { color: white; }
+#manager-app .am-topbar, #employee-app .ae-topbar { height: 64px; min-height: 64px; padding-block: 8px; border-color: var(--portal-line); }
+#manager-app .am-top-date, #employee-app .ae-date, #manager-app .am-breadcrumb, #employee-app .ae-topbar-left { color: var(--portal-muted); }
+#manager-app .am-user strong, #employee-app .ae-account strong, #manager-app .am-breadcrumb strong { color: var(--portal-ink); }
+#manager-app h1, #employee-app .ae-heading h1 { color: var(--portal-ink); font-size: clamp(25px,2vw,32px); letter-spacing: -.045em; line-height: 1.2; }
+#manager-app .am-panel, #manager-app .am-stat, #employee-app .ae-panel, #employee-app .ae-summary, body:not([data-page="login"]) .card {
+  border: 1px solid var(--portal-line); border-radius: 12px; background: #fff; box-shadow: 0 1px 3px #18181b08;
+}
+#manager-app .am-panel-head h2, #employee-app h2, #manager-app .am-dialog h2 { color: var(--portal-ink); letter-spacing: -.025em; }
+#manager-app .am-overview-card { background: white; }
+#manager-app .am-stat.featured { background: linear-gradient(120deg,#fff 20%,#edf4ff); border-color: #c9deef; }
+#manager-app .am-stat>strong, #manager-app .am-stat.featured>strong { color: var(--portal-ink); letter-spacing: -.045em; }
+#manager-app .am-stat-icon, #manager-app .am-stat.featured .am-stat-icon { background: white; color: #50515b; border: 1px solid var(--portal-line); }
+#manager-app .am-overview-card:hover, #employee-app .ae-summary button:hover { border-color: #b6b6bf; }
+#manager-app .am-overview-card-foot { color: var(--portal-muted); }
+#manager-app .am-segment { background: #eaf0f7; border-color: var(--portal-line); }
+#manager-app .am-segment button.selected, #employee-app .ae-tabs button.active { color: var(--portal-ink); }
+#manager-app .am-btn, #employee-app .ae-btn, body:not([data-page="login"]) .primary { border-radius: 7px; }
+#manager-app .am-btn.secondary, #employee-app .ae-btn.secondary, body:not([data-page="login"]) .secondary { background: #fff; border-color: #dcdce1; color: #35353a; }
+#manager-app .am-btn.secondary:hover, #employee-app .ae-btn.secondary:hover { background: #f5f5f6; }
+#manager-app .am-text-btn, #employee-app .ae-invoice-link { color: var(--portal-accent); }
+#manager-app .am-table th, #employee-app .ae-table th { color: #54545c; background: #f3f8fc; border-color: var(--portal-line); font-size: .875rem; }
+#manager-app .am-table td, #employee-app .ae-table td { color: #29292f; border-color: #ececef; font-size: .9375rem; }
+#manager-app .am-table tbody tr:hover, #employee-app .ae-table tbody tr:hover { background: #fafafa; }
+#manager-app .am-dialog, #employee-app .ae-dialog, .atino-account-dialog { border: 1px solid var(--portal-line); color: var(--portal-ink); border-radius: 12px; box-shadow: 0 16px 64px #18181b24; }
+#manager-app .am-dialog::backdrop, #employee-app .ae-dialog::backdrop, .atino-account-dialog::backdrop { background: #18181b65; }
+#employee-app #checkout-customer, #employee-app .movement { background: #fafafa; border-color: var(--portal-line); }
+#manager-app :is(.am-field,.am-toolbar) :is(input,select,textarea), #employee-app .field, .atino-account-dialog .field { border-color: #dcdce1; color: var(--portal-ink); border-radius: 7px; }
+body:not([data-page="login"]) :is(.store-mark,.primary) { background-color: var(--portal-ocean); }
+#manager-app .am-avatar, #employee-app .ae-avatar, .atino-profile-avatar { color: #393942; background: #ededf1; }
+@media (max-width:600px) {
+  #manager-app .am-topbar, #employee-app .ae-topbar { min-height: 56px; height: 56px; }
+}
+
+/* Field groups share the same reading order on both sales screens. */
+#manager-app .am-form-grid, .atino-account-grid { column-gap: 20px; row-gap: 16px; }
+#manager-app .am-form-grid > .am-field, .atino-account-fields label,
+#employee-app #checkout-customer > label {
+  min-width: 0;
+  font-size: .875rem;
+  line-height: 1.5;
+  font-weight: 600;
+  color: #30475c;
+}
+#employee-app #checkout-customer:not([hidden]) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px 20px;
+  background: #f7fbff;
+}
+#employee-app #checkout-customer > h3,
+#employee-app #checkout-customer-error { grid-column: 1 / -1; margin: 0; }
+#employee-app #checkout-cashier-name { align-self: center; color: var(--portal-muted); font-size: .9375rem; }
+#employee-app #checkout-customer .field, .atino-account-fields .field {
+  margin-top: 5px; min-height: 44px; width: 100%; font-weight: 400; background: white;
+}
+#manager-app .am-form-grid :is(input, select, textarea):focus-visible,
+#employee-app .field:focus-visible, .atino-account-dialog .field:focus-visible {
+  outline: 2px solid #3674ad; outline-offset: 2px;
+}
+@media (max-width: 640px) {
+  #employee-app #checkout-customer:not([hidden]), #manager-app .am-form-grid, .atino-account-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+}
+
+#manager-app #am-chart-fill stop:first-child { stop-color: var(--portal-ocean); }
+#manager-app #am-chart-fill stop:last-child { stop-color: #75a5dc; }
+
+#manager-app .am-mini-summary {
+  background: #fff;
+  border: 1px solid var(--portal-line);
+  border-radius: 12px;
+  padding: 14px 18px;
+  gap: 8px 24px;
+  color: #40536a;
+}
+#manager-app .am-mini-summary strong { color: var(--portal-ink); }
+#manager-app .am-mini-summary svg { color: var(--portal-ocean); }
+#manager-app .am-mini-summary > span { display: inline; }
+#manager-app .am-mini-summary :is(svg, .am-status-dot) { display: inline-block; vertical-align: middle; margin-right: 8px; }

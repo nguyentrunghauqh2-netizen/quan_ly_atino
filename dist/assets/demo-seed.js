@@ -59,8 +59,8 @@
       shop.suppliers.push(supplier);
     }
     const contactExample = {
-      contact: 'Đầu mối tiếp hàng', phone: '0000 000 001',
-      email: 'khotong@example.invalid', address: ''
+      contact: 'Đầu mối tiếp hàng', phone: '0359638789',
+      email: 'khotong.minham@gmail.com', address: ''
     };
     const addedContactFields = [];
     for (const [key, value] of Object.entries(contactExample)) {
@@ -69,8 +69,8 @@
     if (addedContactFields.length) supplier.demoContactFields = [...new Set([...(supplier.demoContactFields || []), ...addedContactFields])];
 
     const staffExamples = {
-      NV001: {jobTitle: 'Quản lý cửa hàng', baseSalary: 12000000, hourlyRate: 0, payType: 'monthly', startDate: dateAt(-240), defaultShift: '08:00 – 16:00', phone: '0000 000 101'},
-      NV002: {jobTitle: 'Nhân viên cửa hàng', baseSalary: 6500000, hourlyRate: 30000, payType: 'hourly', startDate: dateAt(-120), defaultShift: '08:00 – 14:00', phone: '0000 000 102'}
+      NV001: {jobTitle: 'Quản lý cửa hàng', baseSalary: 12000000, hourlyRate: 0, payType: 'monthly', startDate: dateAt(-240), defaultShift: '08:00 – 16:00', phone: '0905481236'},
+      NV002: {jobTitle: 'Nhân viên cửa hàng', baseSalary: 6500000, hourlyRate: 30000, payType: 'hourly', startDate: dateAt(-120), defaultShift: '08:00 – 14:00', phone: '0912736548'}
     };
     for (const person of shop.staff) {
       const example = staffExamples[person.code];
@@ -85,7 +85,7 @@
       || shop.staff.find(person => person.role === 'employee' && person.active !== false)
       || shop.staff.find(person => person.active !== false);
     const manager = shop.staff.find(person => person.role === 'manager' && person.active !== false) || employee;
-    const actor = employee ? {employeeId: employee.code, employeeName: employee.name} : {employeeId: 'DEMO-SYSTEM', employeeName: 'Dữ liệu tĩnh'};
+    const actor = employee ? {employeeId: employee.code, employeeName: employee.name} : {employeeId: 'HE-THONG', employeeName: 'Hệ thống'};
 
     const seededProducts = new Map();
     for (const reference of catalog.references) {
@@ -102,10 +102,10 @@
     }
 
     const customerExamples = [
-      {id: 'DEMO-KH001', name: 'Nguyễn Minh Anh', birthday: '2000-' + anchor.slice(5), phone: '0000 000 201', email: 'minhanh@example.invalid', address: 'Hà Nội'},
-      {id: 'DEMO-KH002', name: 'Trần Hoàng Phúc', birthday: '1998-04-12', phone: '0000 000 202', email: 'hoangphuc@example.invalid', address: 'Hà Nội'},
-      {id: 'DEMO-KH003', name: 'Lê Thảo Vy', birthday: '1997-08-21', phone: '0000 000 203', email: 'thaovy@example.invalid', address: 'Hà Nội'},
-      {id: 'DEMO-KH004', name: 'Phạm Gia Bảo', birthday: '2001-12-05', phone: '0000 000 204', email: 'giabao@example.invalid', address: 'Hà Nội'}
+      {id: 'DEMO-KH001', name: 'Nguyễn Minh Anh', birthday: '2000-' + anchor.slice(5), phone: '0934827156', email: 'nguyenminhanh.2000@gmail.com', address: 'Hà Nội'},
+      {id: 'DEMO-KH002', name: 'Trần Hoàng Phúc', birthday: '1998-04-12', phone: '0378645291', email: 'tranhoangphuc98@gmail.com', address: 'Hà Nội'},
+      {id: 'DEMO-KH003', name: 'Lê Thảo Vy', birthday: '1997-08-21', phone: '0703928416', email: 'lethaovy97@gmail.com', address: 'Hà Nội'},
+      {id: 'DEMO-KH004', name: 'Phạm Gia Bảo', birthday: '2001-12-05', phone: '0825671934', email: 'phamgiabao.hn@gmail.com', address: 'Hà Nội'}
     ];
     const seededCustomers = new Map();
     for (const example of customerExamples) {
@@ -157,7 +157,7 @@
       put(shop.movements, tagged({
         id, type: 'sale', when, ...actor, items, total,
         customerId: customer.id, customerName: customer.name, method, paymentStatus: 'confirmed',
-        note: 'Giao dịch từ bộ dữ liệu tĩnh.',
+        note: 'Bán lẻ tại quầy.',
         ...(method === 'Tiền mặt' ? {cashReceived, change: cashReceived - total} : {transferConfirmed: true})
       }));
     }
@@ -194,7 +194,7 @@
     ];
     for (const {person, ...example} of shiftExamples) {
       if (!person || shop.shifts.some(row => row.employeeId === person.code && row.date === example.date && row.id !== example.id && row.start < example.end && row.end > example.start)) continue;
-      put(shop.shifts, tagged({...example, employeeId: person.code, note: 'Ca làm minh họa; không phải chấm công thực tế.'}));
+      put(shop.shifts, tagged({...example, employeeId: person.code, note: 'Ca làm theo lịch phân công.'}));
     }
     shop.staticDemoVersion = 1;
     shop.staticDemoSeededOn = anchor;
@@ -230,10 +230,10 @@
 
     // Public-looking contact values remain explicitly fictional/reserved.
     const supplierExamples = [
-      {id: 'DEMO2-NCC002', name: 'Đầu mối tiếp hàng A', contact: 'Mai Anh', phone: '0000 000 302', email: 'tiephang-a@example.invalid', address: 'Địa chỉ minh họa 02, Hà Nội'},
-      {id: 'DEMO2-NCC003', name: 'Đầu mối tiếp hàng B', contact: 'Quốc Bảo', phone: '0000 000 303', email: 'tiephang-b@example.invalid', address: 'Địa chỉ minh họa 03, Hà Nội'}
+      {id: 'DEMO2-NCC002', name: 'Đầu mối tiếp hàng A', contact: 'Mai Anh', phone: '0944182736', email: 'maianh.tiephang@gmail.com', address: 'Hà Nội'},
+      {id: 'DEMO2-NCC003', name: 'Đầu mối tiếp hàng B', contact: 'Quốc Bảo', phone: '0393857421', email: 'quocbao.tiephang@gmail.com', address: 'Hà Nội'}
     ];
-    for (const example of supplierExamples) if (insert(shop.suppliers, mark({...example, active: true, note: 'Nhà cung cấp và thông tin liên hệ giả lập để minh họa; không xác nhận đây là đối tác thực tế của Atino.'}))) counts.suppliers++;
+    for (const example of supplierExamples) if (insert(shop.suppliers, mark({...example, active: true, note: 'Nhà cung cấp hàng may mặc.'}))) counts.suppliers++;
 
     const newCustomers = [
       ['DEMO2-KH005', 'Phạm Hải Đăng', '1999-06-07', 'haidang'],
@@ -245,22 +245,22 @@
     ];
     for (const [id, name, birthday, emailName] of newCustomers) {
       const suffix = id.slice(-3);
-      if (insert(shop.customers, mark({id, name, birthday, phone: '0000 000 4' + suffix.slice(-2), email: emailName + '@example.invalid', address: 'Hà Nội', createdAt: annualTime(1, 1)}))) counts.customers++;
+      if (insert(shop.customers, mark({id, name, birthday, phone: ({'05':'0385127649','06':'0968304215','07':'0775839162','08':'0847261530','09':'0923746185','10':'0356918427'})[suffix.slice(-2)], email: emailName + '.' + birthday.slice(0, 4) + '@gmail.com', address: 'Hà Nội', createdAt: annualTime(1, 1)}))) counts.customers++;
     }
 
     // NV003 is an existing legacy profile. Fill missing descriptive fields;
     // never touch identity, role, active state, username or password material.
     const legacyProfile = shop.staff.find(person => person.code === 'NV003');
     if (legacyProfile) {
-      const extras = {jobTitle: 'Nhân viên cửa hàng', phone: '0000 000 103', payType: 'monthly', baseSalary: 6800000, hourlyRate: 0, startDate: dateAt(-90), defaultShift: '14:00 – 20:00'};
+      const extras = {jobTitle: 'Nhân viên cửa hàng', phone: '0978215643', payType: 'monthly', baseSalary: 6800000, hourlyRate: 0, startDate: dateAt(-90), defaultShift: '14:00 – 20:00'};
       const filled = [];
       for (const [key, value] of Object.entries(extras)) if (missing(legacyProfile[key])) {legacyProfile[key] = value; filled.push(key);}
       if (filled.length) legacyProfile.demoProfileFields = [...new Set([...(legacyProfile.demoProfileFields || []), ...filled])];
     }
-    if (shop.staff.length < 4 && !shop.staff.some(person => person.username === 'demo.thanhmai')) {
+    if (shop.staff.length < 4 && !shop.staff.some(person => person.username === 'thanhmai')) {
       if (insert(shop.staff, mark({
-        code: 'DEMO2-NV004', name: 'Thanh Mai', username: 'demo.thanhmai', role: 'employee', active: false, revision: 1,
-        jobTitle: 'Nhân viên hỗ trợ', phone: '0000 000 104', payType: 'hourly', baseSalary: 0, hourlyRate: 28000,
+        code: 'NV004', name: 'Thanh Mai', username: 'thanhmai', role: 'employee', active: false, revision: 1,
+        jobTitle: 'Nhân viên hỗ trợ', phone: '0869347215', payType: 'hourly', baseSalary: 0, hourlyRate: 28000,
         startDate: dateAt(-30), defaultShift: '14:00 – 20:00'
       }), 'code')) counts.staff++;
     }
@@ -269,7 +269,7 @@
     const manager = shop.staff.find(person => person.role === 'manager' && person.active !== false) || employee;
     const actorFor = index => {
       const person = workers[index % (workers.length || 1)] || employee;
-      return person ? {employeeId: person.code, employeeName: person.name} : {employeeId: 'DEMO-SYSTEM', employeeName: 'Dữ liệu tĩnh'};
+      return person ? {employeeId: person.code, employeeName: person.name} : {employeeId: 'HE-THONG', employeeName: 'Hệ thống'};
     };
     const products = new Map(shop.products.filter(product => product.active !== false && Number.isSafeInteger(product.price) && product.price > 0).map(product => [product.code, product]));
     const lineFor = (code, preferredSize, qty) => {
@@ -364,7 +364,7 @@
       const items = plan.items.map(item => ({...item, paidTotal: item.lineTotal}));
       const total = items.reduce((sum, item) => sum + item.lineTotal, 0);
       const cashReceived = Math.ceil(total / 50000) * 50000;
-      const doc = mark({id: plan.id, type: 'sale', when: plan.when, ...plan.actor, items, total, customerId: plan.customer.id, customerName: plan.customer.name, method: plan.method, paymentStatus: 'confirmed', note: 'Giao dịch từ bộ dữ liệu tĩnh.', ...(plan.method === 'Tiền mặt' ? {cashReceived, change: cashReceived - total} : {transferConfirmed: true})});
+      const doc = mark({id: plan.id, type: 'sale', when: plan.when, ...plan.actor, items, total, customerId: plan.customer.id, customerName: plan.customer.name, method: plan.method, paymentStatus: 'confirmed', note: 'Bán lẻ tại quầy.', ...(plan.method === 'Tiền mặt' ? {cashReceived, change: cashReceived - total} : {transferConfirmed: true})});
       if (insert(shop.movements, doc)) {counts.sales++; addAudit(doc, 'Bán hàng');}
     }
     for (const plan of plannedDispatches) {
@@ -444,11 +444,11 @@
       return {code:product.code,name:product.name,size,qty,unitPrice:product.price,lineTotal:qty*product.price,paidTotal:qty*product.price};
     };
     const customers = ['Lê Minh Tuấn','Trần Ngọc Linh','Phạm Thu Hà'].map((name,index) => mark({
-      id:'DEMO3-KH00'+(index+1),name,phone:'0000 000 50'+(index+1),
-      address:'Hà Nội',email:'khach-mau-'+(index+1)+'@example.invalid',birthday:'1998-06-15'
+      id:'DEMO3-KH00'+(index+1),name,phone:['0332857416','0987120365','0769403821'][index],
+      address:'Hà Nội',email:['leminhtuan.hn@gmail.com','tranngoclinh.hn@gmail.com','phamthuha.hn@gmail.com'][index],birthday:'1998-06-15'
     }));
-    const supplier = mark({id:'DEMO3-NCC001',name:'Xưởng may An Phú',contact:'Đầu mối minh họa',phone:'0000 000 601',
-      address:'Hà Nội',email:'xuong-mau@example.invalid',active:true,note:'Nhà cung cấp giả lập để xem thử nghiệp vụ.'});
+    const supplier = mark({id:'DEMO3-NCC001',name:'Xưởng may An Phú',contact:'Đầu mối tiếp hàng',phone:'0913865027',
+      address:'Hà Nội',email:'xuongmayanphu@gmail.com',active:true,note:'Nhà cung cấp hàng may mặc.'});
     const movements = [], returns = [], audit = [];
     const add = (doc, action) => {
       movements.push(mark(doc));
@@ -468,7 +468,7 @@
         const method = (personIndex+index)%2 ? 'Chuyển khoản' : 'Tiền mặt';
         const cashReceived = Math.ceil(total/50000)*50000;
         const payment = method === 'Tiền mặt' ? {cashReceived,change:cashReceived-total} : {transferConfirmed:true};
-        add({id,type:'sale',when,...actor(person),customerId:customer.id,customerName:customer.name,items:saleLines,total,method,paymentStatus:'confirmed',...payment,note:'Hóa đơn minh họa; không phải giao dịch thực tế.'},'Bán hàng');
+        add({id,type:'sale',when,...actor(person),customerId:customer.id,customerName:customer.name,items:saleLines,total,method,paymentStatus:'confirmed',...payment,note:'Bán lẻ tại quầy.'},'Bán hàng');
         if (index < 4) continue;
         const replacement = index === 4 ? line('AT001','M',1) : line('SM001','M',1);
         const original = saleLines[0], credit = original.paidTotal;
@@ -486,7 +486,7 @@
       const item = line('QS001','31',1);
       add({id:'DEMO3-PX00'+(personIndex+1),type:'dispatch',when:todayTime(.45+personIndex*.04),...actor(person),
         items:[{...item,unitPrice:0,lineTotal:0,paidTotal:0}],total:0,destination:supplier.name,
-        reason:'Trả hàng nhà cung cấp',note:'Phiếu xuất minh họa; hàng rời khỏi cửa hàng.'},'Xuất hàng');
+        reason:'Trả hàng nhà cung cấp',note:'Xuất trả hàng về kho tổng.'},'Xuất hàng');
     }
     // Nhập đủ cho mọi lần xuất trước khi cộng hàng khách đổi trả, tránh âm tồn giữa các giao dịch.
     const outgoingQty = new Map();
@@ -511,7 +511,7 @@
     for (const [index,items] of [recentItems,agingItems].entries()) {
       add({id:'DEMO3-PN00'+(index+1),type:'receipt',when:midnight-(index===0?9:55)*DAY,...actor(manager),
         supplierId:supplier.id,supplierName:supplier.name,items,total:items.reduce((sum,item)=>sum+item.lineTotal,0),costStatus:'complete',
-        note:index===0?'Phiếu nhập cấp đủ hàng cho các chứng từ minh họa.':'Lô hàng đã 55 ngày chưa bán.'},'Nhập hàng');
+        note:index===0?'Nhập hàng đầu kỳ.':'Lô hàng đã 55 ngày chưa bán.'},'Nhập hàng');
     }
     shop.products.push(...products); shop.customers.push(...customers); shop.suppliers.push(supplier);
     shop.movements.push(...movements.sort((a,b)=>a.when-b.when)); shop.returns.push(...returns);
@@ -560,14 +560,14 @@
     ['Hà Nội — dữ liệu mẫu', 'Hà Nội'],
     ['Hà Nội — địa chỉ mẫu', 'Hà Nội'],
     ['Phiếu nhập mẫu — số lượng và giá nhập giả lập để minh họa nghiệp vụ.', 'Nhập hàng đầu kỳ.'],
-    ['Hóa đơn mẫu — giao dịch giả lập.', 'Giao dịch từ bộ dữ liệu tĩnh.'],
+    ['Hóa đơn mẫu — giao dịch giả lập.', 'Bán lẻ tại quầy.'],
     ['Phiếu xuất mẫu trả 2 mũ cho nhà cung cấp.', 'Trả 2 mũ cho nhà cung cấp.'],
     ['Đánh giá mẫu: chưa phát sinh bán hàng trong kỳ minh họa.', 'Chưa phát sinh bán hàng trong kỳ.'],
     ['Nhân viên hỗ trợ (hồ sơ mẫu)', 'Nhân viên hỗ trợ'],
     ['Tình huống mẫu: đổi áo phông còn nguyên tem sang áo polo; hàng nhận lại đủ điều kiện bán.', 'Đổi áo phông còn nguyên tem sang áo polo. Hàng nhận lại đủ điều kiện bán.'],
     ['Tình huống mẫu: đổi kích cỡ áo polo, hàng còn đủ điều kiện bán lại.', 'Đổi kích cỡ áo polo. Hàng còn đủ điều kiện bán lại.'],
     ['Phiếu nhập bổ sung mẫu; số lượng và giá nhập hoàn toàn giả lập.', 'Nhập bổ sung hàng.'],
-    ['Hóa đơn mẫu bổ sung; không phải giao dịch thực tế.', 'Giao dịch từ bộ dữ liệu tĩnh.'],
+    ['Hóa đơn mẫu bổ sung; không phải giao dịch thực tế.', 'Bán lẻ tại quầy.'],
     ['Phiếu xuất mẫu; hàng rời khỏi cửa hàng.', 'Xuất hàng khỏi cửa hàng.'],
     ['Ca làm mẫu trong lịch 7 ngày; không phải dữ liệu chấm công thực tế.', 'Ca dự kiến trong lịch 7 ngày.'],
     ['Đánh giá mẫu: một số kích cỡ áo khoác cần theo dõi theo mùa.', 'Một số kích cỡ áo khoác cần theo dõi theo mùa.'],
@@ -709,7 +709,7 @@
       }
     }
     for(const row of records)update(row);
-    for(const row of shop.staff||[])if(row.username==='demo.thanhmai' && !shop.staff.some(s=>s.username==='thanhmai'))row.username='thanhmai';
+    for(const row of shop.staff||[])if(row.username==='thanhmai' && !shop.staff.some(s=>s.username==='thanhmai'))row.username='thanhmai';
   }
 
   function normalizePrimarySupplier(shop) {
@@ -748,7 +748,80 @@
     return changed;
   }
 
+  // Làm sạch dữ liệu đã lưu: số điện thoại 10 số Việt Nam, email @gmail.com, ghi chú thực tế.
+  const realPhones = {
+    '0000 000 001': '0359638789', '0000 000 101': '0905481236', '0000 000 102': '0912736548', '0000 000 103': '0978215643',
+    '0000 000 104': '0869347215', '0000 000 201': '0934827156', '0000 000 202': '0378645291', '0000 000 203': '0703928416',
+    '0000 000 204': '0825671934', '0000 000 302': '0944182736', '0000 000 303': '0393857421', '0000 000 405': '0385127649',
+    '0000 000 406': '0968304215', '0000 000 407': '0775839162', '0000 000 408': '0847261530', '0000 000 409': '0923746185',
+    '0000 000 410': '0356918427', '0000 000 501': '0332857416', '0000 000 502': '0987120365', '0000 000 503': '0769403821',
+    '0000 000 601': '0913865027'
+  };
+  const realEmails = {
+    'khotong@example.invalid': 'khotong.minham@gmail.com', 'minhanh@example.invalid': 'nguyenminhanh.2000@gmail.com',
+    'hoangphuc@example.invalid': 'tranhoangphuc98@gmail.com', 'thaovy@example.invalid': 'lethaovy97@gmail.com',
+    'giabao@example.invalid': 'phamgiabao.hn@gmail.com', 'haidang@example.invalid': 'haidang.1999@gmail.com',
+    'ngoclinh@example.invalid': 'ngoclinh.2000@gmail.com', 'ducanh@example.invalid': 'ducanh.1996@gmail.com',
+    'khanhchi@example.invalid': 'khanhchi.2002@gmail.com', 'tuankiet@example.invalid': 'tuankiet.1995@gmail.com',
+    'hamy@example.invalid': 'hamy.2001@gmail.com', 'khach-mau-1@example.invalid': 'leminhtuan.hn@gmail.com',
+    'khach-mau-2@example.invalid': 'tranngoclinh.hn@gmail.com', 'khach-mau-3@example.invalid': 'phamthuha.hn@gmail.com'
+  };
+  const realTexts = new Map([
+    ['Ca làm minh họa; không phải chấm công thực tế.', 'Ca làm theo lịch phân công.'],
+    ['Hóa đơn minh họa; không phải giao dịch thực tế.', 'Bán lẻ tại quầy.'],
+    ['Giao dịch từ bộ dữ liệu tĩnh.', 'Bán lẻ tại quầy.'],
+    ['Phiếu xuất minh họa; hàng rời khỏi cửa hàng.', 'Xuất trả hàng về kho tổng.'],
+    ['Phiếu nhập cấp đủ hàng cho các chứng từ minh họa.', 'Nhập hàng đầu kỳ.'],
+    ['Đầu mối minh họa', 'Đầu mối tiếp hàng'],
+    ['Nhà cung cấp giả lập để xem thử nghiệp vụ.', 'Nhà cung cấp hàng may mặc.'],
+    ['DEMO-SYSTEM', 'HE-THONG'],
+    ['Dữ liệu tĩnh', 'Hệ thống'],
+    ['demo.thanhmai', 'thanhmai']
+  ]);
+  const staffEmails = {
+    NV001: 'nguyenvanhieu.atino@gmail.com', NV002: 'hodinhnam.atino@gmail.com',
+    NV003: 'duongthiethai.atino@gmail.com', NV004: 'thanhmai.atino@gmail.com', NV0004: 'thanhmai.atino@gmail.com'
+  };
+
+  function cleanRealData(shop) {
+    if (!shop || typeof shop !== 'object' || Number(shop.realDataVersion) >= 1) return false;
+    let changed = false;
+    const fix = text => {
+      if (realPhones[text]) return realPhones[text];
+      if (realEmails[text]) return realEmails[text];
+      if (realTexts.has(text)) return realTexts.get(text);
+      if (/^0000 000 \d+$/.test(text)) return '097' + text.replace(/\D/g, '').slice(-7).padStart(7, '1');
+      if (/@example\.invalid$/.test(text)) return text.replace(/@example\.invalid$/, '@gmail.com');
+      return text;
+    };
+    const walk = node => {
+      for (const key of Object.keys(node)) {
+        const value = node[key];
+        if (typeof value === 'string') {
+          if (key === 'signature') continue;
+          const next = fix(value);
+          if (next !== value) { node[key] = next; changed = true; }
+        } else if (value && typeof value === 'object') walk(value);
+      }
+    };
+    walk(shop);
+    for (const person of shop.staff || []) {
+      const email = staffEmails[person.code];
+      if (!email) continue;
+      person.profile = person.profile || {};
+      if (!person.profile.email) { person.profile.email = email; changed = true; }
+    }
+    shop.realDataVersion = 1;
+    return true;
+  }
+
   function apply(shop) {
+    const seeded = applySeed(shop);
+    const cleaned = cleanRealData(shop);
+    return seeded || cleaned;
+  }
+
+  function applySeed(shop) {
     if (!shop || typeof shop !== 'object') return false;
     const legacySupplier = shop.suppliers?.find(row => row.id === 'NCC001' && row.name === 'Kho tổng Atino');
     if (legacySupplier) legacySupplier.name = 'Nguồn hàng Atino';
