@@ -13,6 +13,7 @@
     address: '42 Bến Nghé, Huế',
     branchCode: 'MT_CH16',
     hotline: '096.728.4444',
+    complaintHotline: '0979.81.8888',
     warehouse: 'Kho tổng — Công ty TNHH Thời Trang Minh AM',
     storeWarehouse: 'KHO CỬA HÀNG'
   });
@@ -21,15 +22,18 @@
   const number = new Intl.NumberFormat('vi-VN');
   const num = value => Number.isFinite(Number(value)) ? Number(value) : 0;
   const money = value => number.format(Math.round(num(value)));
-  const two = value => String(value).padStart(2, '0');
+  const vietnamTime = new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+  });
 
   // Đầu vào: mili giây. Đầu ra: "dd/mm/yyyy hh:mm" (thêm giây nếu withSeconds = true).
   function dateTime(when, withSeconds = false) {
-    const d = new Date(num(when));
+    const d = new Date(Number(when));
     if (!Number.isFinite(d.getTime()) || !when) return '—';
-    const day = `${two(d.getDate())}/${two(d.getMonth() + 1)}/${d.getFullYear()}`;
-    const time = `${two(d.getHours())}:${two(d.getMinutes())}` + (withSeconds ? `:${two(d.getSeconds())}` : '');
-    return `${day} ${time}`;
+    const parts = Object.fromEntries(vietnamTime.formatToParts(d).map(part => [part.type, part.value]));
+    const {day, month, year, hour, minute, second} = parts;
+    return `${day}/${month}/${year} ${hour}:${minute}` + (withSeconds ? `:${second}` : '');
   }
 
   // "Mã - Tên" của một người; ưu tiên tên đã lưu trên chứng từ.
@@ -45,6 +49,15 @@
   // Mã vạch của một dòng hàng = mã sản phẩm + kích cỡ.
   function barcodeOf(item) {
     return [item.code, item.size && item.size !== 'Chưa phân size' ? item.size : ''].filter(Boolean).join('-');
+  }
+
+  // Mã dài của một dòng hàng, ghép từ thông tin tem nhãn: mã SP . nơi SX . năm . chất liệu - màu - size.
+  function longCodeOf(item, product) {
+    const info = product?.labelInfo || {};
+    const size = item.size && item.size !== 'Chưa phân size' ? item.size : '';
+    const head = [item.code, info.origin, info.year, info.material].filter(Boolean).join('.');
+    const tail = [info.color, size].filter(Boolean).join('-');
+    return [head, tail].filter(Boolean).join('-') || item.code;
   }
 
   // Phiếu nhập: nguồn là Kho tổng, đích là cửa hàng. Phiếu xuất: ngược lại.
@@ -65,7 +78,7 @@
     return found ? found.id : '—';
   }
 
-  const lineRetailPrice = (item, ctx) => num(productOf(item.code, ctx)?.price) || num(item.unitPrice);
+  const lineRetailPrice = (item, ctx) => num(item.sellingPrice) || num(productOf(item.code, ctx)?.price) || num(item.unitPrice);
 
   // Tính các thuộc tính chung của Hóa đơn Nhập / Xuất.
   function stockSummary(doc, ctx) {
@@ -80,6 +93,8 @@
         size: item.size && item.size !== 'Chưa phân size' ? item.size : '',
         barcode: barcodeOf(item),
         code: item.code,
+        longCode: longCodeOf(item, product),
+        image: product?.image || '',
         qty: num(item.qty),
         cost: ctx.showCost && doc.type === 'receipt' && cost > 0 ? cost : null,
         retail,
@@ -107,43 +122,118 @@
   }
 
   const STOCK_STYLE = `<style>
-    .dv-stock{color:inherit}.dv-stock h3{margin:0 0 .75rem;font-size:1.05rem}
-    .dv-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));gap:.5rem 1.5rem;margin:0 0 1rem;font-size:.9rem}
-    .dv-meta div{display:flex;gap:.4rem}.dv-meta dt{font-weight:600;white-space:nowrap}.dv-meta dt::after{content:':'}.dv-meta dd{margin:0}
+    .dv-stock{color:inherit;font-size:.9rem}
+    .dv-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin:0 0 .9rem}
+    .dv-head h3{margin:0;font-size:1.1rem}
+    .dv-menu{position:relative}.dv-menu summary{list-style:none;cursor:pointer;border:1px solid #d7dde5;border-radius:6px;padding:.35rem .8rem;background:#fff;font-size:.85rem}
+    .dv-menu summary::-webkit-details-marker{display:none}.dv-menu summary::after{content:' ▾'}
+    .dv-menu-list{position:absolute;right:0;top:calc(100% + 4px);z-index:5;min-width:11rem;border:1px solid #d7dde5;border-radius:6px;background:#fff;box-shadow:0 6px 18px rgba(0,0,0,.12);padding:.25rem}
+    .dv-menu-list button{display:block;width:100%;text-align:left;border:0;background:none;padding:.45rem .6rem;border-radius:4px;cursor:pointer;font:inherit;color:#17212b}
+    .dv-menu-list button:hover{background:#f3f5f8}
+    .dv-meta{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,.8fr);gap:1rem 2rem;margin:0 0 1rem}
+    .dv-meta dl{margin:0;display:grid;gap:.5rem;align-content:start}.dv-meta dl>div{display:flex;gap:.4rem;flex-wrap:wrap}
+    .dv-meta dt{font-weight:600;white-space:nowrap}.dv-meta dt::after{content:':'}.dv-meta dd{margin:0;overflow-wrap:anywhere}
+    .dv-link{color:#1a5fd0;background:none;border:0;padding:0;font:inherit;cursor:pointer;text-align:left}
+    span.dv-link{cursor:default}.dv-link:hover{text-decoration:underline}
     .dv-wrap{overflow-x:auto}.dv-table{width:100%;border-collapse:collapse;font-size:.85rem}
     .dv-table th,.dv-table td{border:1px solid #d7dde5;padding:.4rem .5rem;text-align:left;vertical-align:top}
-    .dv-table th{background:#f3f5f8;color:#17212b}.dv-table .dv-r{text-align:right;white-space:nowrap}
+    .dv-table th{background:#f3f5f8;color:#17212b;white-space:nowrap}.dv-table .dv-r{text-align:right;white-space:nowrap}
+    .dv-table .dv-code{min-width:14rem;overflow-wrap:anywhere}.dv-table .dv-prod{min-width:11rem}
     .dv-table small{display:block;color:#66717f}.dv-table tfoot td{font-weight:700}
+    .dv-thumb{width:34px;height:34px;object-fit:cover;border-radius:4px;display:block;background:#eef1f5}
+    .dv-thumb-empty{width:34px;height:34px;border-radius:4px;background:#eef1f5;display:block}
+    .dv-down{color:#d93025}
     .dv-traced{background:#fff7d6}
+    .dv-attach{margin-top:1rem;border-top:1px solid #d7dde5;padding-top:.7rem}
+    .dv-attach h4{margin:0 0 .4rem;font-size:.95rem}.dv-attach ul{margin:0;padding-left:1.1rem}.dv-attach p{margin:0;color:#66717f}
+    @media(max-width:720px){.dv-meta{grid-template-columns:1fr}}
+    @media print{.dv-menu{display:none}}
   </style>`;
 
-  // Hóa đơn Nhập / Xuất dạng bảng. ctx: {staff, products, movements, showCost, highlightCode}
+  const stockRegistry = new Map();
+
+  // Hóa đơn Nhập / Xuất dạng bảng, bố cục theo mẫu chuyển kho của cửa hàng.
+  // ctx: {staff, products, movements, showCost, highlightCode}
   function stockHtml(doc, ctx = {}) {
     const sum = stockSummary(doc, ctx);
-    const pairs = [['Mã phiếu', doc.id], ...sum.pairs.slice(0, 5)];
-    pairs.push(['Tổng tiền', money(sum.retailTotal)]);
+    const pair = label => sum.pairs.find(item => item[0] === label)?.[1] ?? '—';
+    const source = pair('Từ phiếu nhập');
+    const canOpen = source && source !== '—';
+    const left = [
+      ['Kho xuất', esc(pair('Kho xuất'))],
+      ['Kho nhập', esc(pair('Kho nhập'))],
+      ['Từ phiếu nhập', canOpen ? `<button type="button" class="dv-link" data-dv-open="${esc(source)}">${esc(source)}</button>` : '—'],
+      ['Ghi chú', esc(pair('Ghi chú'))]
+    ];
+    const middle = [
+      ['Mã phiếu', esc(doc.id)],
+      ['Người tạo', `<span class="dv-link">${esc(pair('Người tạo'))}</span>`],
+      ['Ngày tạo', esc(pair('Ngày tạo'))]
+    ];
+    const right = [['Tổng tiền', esc(money(sum.retailTotal))]];
     if (ctx.showCost && doc.type === 'receipt') {
-      pairs.push(['Tổng giá nhập', sum.costTotal > 0 ? money(sum.costTotal) : 'Chờ bổ sung giá nhập']);
+      right.push(['Tổng giá nhập', esc(sum.costTotal > 0 ? money(sum.costTotal) : 'Chờ bổ sung giá nhập')]);
     }
-    pairs.push(sum.pairs[5]);
-    const meta = pairs.map(([label, value]) => `<div><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join('');
+    const column = rows => `<dl>${rows.map(([label, html]) => `<div><dt>${esc(label)}</dt><dd>${html}</dd></div>`).join('')}</dl>`;
     const body = sum.rows.map(row => `<tr${ctx.highlightCode && row.code === ctx.highlightCode ? ' class="dv-traced"' : ''}>
       <td>${row.index}</td>
-      <td>${esc(row.name)}${row.size ? ' - ' + esc(row.size) : ''}<small>${esc(row.barcode)}</small></td>
-      <td>${esc(row.code)}</td>
+      <td>${row.image ? `<img class="dv-thumb" src="${esc(row.image)}" alt="">` : '<span class="dv-thumb-empty"></span>'}</td>
+      <td class="dv-prod"><span class="dv-link">${esc(row.name)}${row.size ? ' - ' + esc(row.size) : ''}</span><small>${esc(row.barcode)}</small></td>
+      <td class="dv-code">${esc(row.longCode)}</td>
       <td class="dv-r">${number.format(row.qty)}</td>
       <td class="dv-r">${row.cost == null ? '' : money(row.cost)}</td>
       <td class="dv-r">${money(row.retail)}</td>
       <td>${esc(row.vat)}</td>
       <td>${esc(row.unit)}</td>
+      <td></td>
       <td class="dv-r">${money(row.total)}</td>
       <td>${esc(row.note)}</td></tr>`).join('');
-    return `${STOCK_STYLE}<section class="dv-stock"><h3>${esc(sum.title)}: ${esc(doc.id)}</h3>
-      <dl class="dv-meta">${meta}</dl>
-      <div class="dv-wrap"><table class="dv-table"><thead><tr><th>#</th><th>Sản phẩm</th><th>Mã</th><th class="dv-r">SL</th><th class="dv-r">Giá</th><th class="dv-r">Giá bán</th><th>VAT</th><th>ĐVT</th><th class="dv-r">Tổng</th><th>Ghi chú</th></tr></thead>
-      <tbody>${body || '<tr><td colspan="10">Phiếu chưa có mặt hàng.</td></tr>'}</tbody>
-      <tfoot><tr><td colspan="3">Tổng</td><td class="dv-r">${number.format(sum.qty)}</td><td></td><td></td><td></td><td></td><td class="dv-r">${money(sum.retailTotal)}</td><td></td></tr></tfoot></table></div></section>`;
+    const files = Array.isArray(doc.attachments) ? doc.attachments : [];
+    const attach = files.length
+      ? `<ul>${files.map(file => `<li>${esc(file.name || file)}</li>`).join('')}</ul>`
+      : '<p>Chưa có file đính kèm.</p>';
+    stockRegistry.set(String(doc.id), {doc, ctx});
+    return `${STOCK_STYLE}<section class="dv-stock" data-dv-doc="${esc(doc.id)}">
+      <div class="dv-head"><h3>${esc(sum.title)}: ${esc(doc.id)}</h3>
+        <details class="dv-menu"><summary>Thao tác</summary><div class="dv-menu-list">
+          <button type="button" data-dv-print="${esc(doc.id)}">In phiếu</button>
+          <button type="button" data-dv-copy="${esc(doc.id)}">Sao chép mã phiếu</button></div></details></div>
+      <div class="dv-meta">${column(left)}${column(middle)}${column(right)}</div>
+      <div class="dv-wrap"><table class="dv-table"><thead><tr><th>#</th><th></th><th>Sản phẩm</th><th>Mã</th><th class="dv-r">SL</th><th class="dv-r">Giá</th><th class="dv-r">Giá bán</th><th>VAT</th><th>ĐVT</th><th class="dv-down" title="Chiết khấu">↓</th><th class="dv-r">Tổng</th><th>Ghi chú</th></tr></thead>
+      <tbody>${body || '<tr><td colspan="12">Phiếu chưa có mặt hàng.</td></tr>'}</tbody>
+      <tfoot><tr><td colspan="4">Tổng</td><td class="dv-r">${number.format(sum.qty)}</td><td></td><td class="dv-r">${money(sum.retailTotal)}</td><td></td><td></td><td></td><td class="dv-r">${money(sum.retailTotal)}</td><td></td></tr></tfoot></table></div>
+      <div class="dv-attach"><h4>File đính kèm</h4>${attach}</div></section>`;
   }
+
+  // Mở cửa sổ in phiếu nhập / xuất kho.
+  function printStock(doc, ctx = {}) {
+    const popup = window.open('', '_blank', 'width=1000,height=800');
+    if (!popup) return false;
+    popup.document.open();
+    popup.document.write(`<!doctype html><html lang="vi"><head><meta charset="UTF-8"><title>${esc(doc.id)} · ATINO</title><style>body{margin:16px;font-family:Arial,sans-serif;color:#17212b;background:#fff}</style></head><body><header style="color:#36538a;font-weight:bold;margin-bottom:8px">ATINO</header>${stockHtml(doc, ctx)}<style>@page{size:A4 landscape;margin:10mm}.dv-menu{display:none}.dv-meta{background:#eff4fc;padding:12px}.dv-table th{background:#233655;color:white}.dv-table tr:nth-child(even){background:#f4f7fb}.dv-wrap{overflow:visible}.dv-table .dv-code,.dv-table .dv-prod{min-width:0}.dv-table{font-size:10px}.dv-table th{white-space:normal}tr{break-inside:avoid}</style></body></html>`);
+    popup.document.close();
+    popup.focus();
+    popup.print();
+    return true;
+  }
+
+  // Một lần gắn sự kiện chung cho menu "Thao tác" và liên kết "Từ phiếu nhập".
+  document.addEventListener('click', event => {
+    const print = event.target.closest('[data-dv-print]');
+    const copy = event.target.closest('[data-dv-copy]');
+    const open = event.target.closest('[data-dv-open]');
+    if (print) {
+      const entry = stockRegistry.get(print.dataset.dvPrint);
+      if (entry) printStock(entry.doc, entry.ctx);
+      print.closest('details')?.removeAttribute('open');
+    } else if (copy) {
+      navigator.clipboard?.writeText(copy.dataset.dvCopy).catch(() => {});
+      copy.closest('details')?.removeAttribute('open');
+    } else if (open) {
+      const viewer = window.AtinoManager?.showDocument;
+      if (typeof viewer === 'function') viewer(open.dataset.dvOpen);
+    }
+  });
 
   // Cặp (nhãn, giá trị) bổ sung cho các màn hình đã có sẵn bố cục riêng (màn nhân viên).
   function stockPairs(doc, ctx = {}) {
@@ -228,6 +318,7 @@
       <p class="c small">Phiếu tính tiền chỉ có giá trị xuất hóa đơn trong vòng 120 phút và trước 22h trong ngày mua hàng.</p>
       <p class="c"><em>Cảm ơn Quý khách đã tin tưởng và lựa chọn sản phẩm <strong>${esc(STORE.name)}</strong>!</em></p>
       <p class="small">Để đảm bảo quyền lợi đổi hàng cũng như số tiền thanh toán, Quý khách vui lòng kiểm tra kỹ thông tin trên hóa đơn gồm: thời gian mua hàng, thông tin sản phẩm, số lượng sản phẩm, tổng tiền và thông tin cá nhân.</p>
+      <p class="small">Hãy liên hệ với chúng tôi để <strong><u>NHẬN NGAY 2 TRIỆU ĐỒNG</u></strong> qua hotline ${esc(STORE.complaintHotline)} nếu hoá đơn này không ghi đúng thời gian mua hàng hoặc thông tin Khách hàng trên hoá đơn là thông tin của Khách hàng khác.</p>
       <hr><p><strong><u>CHÍNH SÁCH 30 NGÀY ĐỔI HÀNG:</u></strong></p>
       <ul>${POLICY.map(line => `<li>${esc(line)}</li>`).join('')}</ul></div>`;
   }
@@ -237,12 +328,12 @@
     const popup = window.open('', '_blank', 'width=420,height=800');
     if (!popup) return false;
     popup.document.open();
-    popup.document.write(`<!doctype html><html lang="vi"><head><meta charset="UTF-8"><title>${esc(doc.id)} · ATINO</title><style>body{margin:0;background:#fff}@media print{body{margin:0}}</style></head><body>${saleReceiptHtml(doc, ctx)}</body></html>`);
+    popup.document.write(`<!doctype html><html lang="vi"><head><meta charset="UTF-8"><title>${esc(doc.id)} · ATINO</title><style>body{margin:0;background:#fff}@media print{body{margin:0}}</style></head><body>${saleReceiptHtml(doc, ctx)}<style>.dv-receipt h1,.dv-receipt h2{color:#203657}.dv-receipt th{background:#233655;color:white;padding:6px 3px}.dv-receipt tr:nth-child(even),.dv-receipt .big{background:#edf3fc}.dv-receipt td{border-bottom:1px solid #d4deed}.dv-receipt .big{padding:6px 3px}@media print{thead{display:table-header-group}tr{break-inside:avoid}}</style></body></html>`);
     popup.document.close();
     popup.focus();
     popup.print();
     return true;
   }
 
-  window.AtinoDocuments = Object.freeze({STORE, stockHtml, stockPairs, saleReceiptHtml, printSale, dateTime, person});
+  window.AtinoDocuments = Object.freeze({STORE, stockSummary, stockHtml, printStock, stockPairs, saleReceiptHtml, printSale, dateTime, person});
 })();

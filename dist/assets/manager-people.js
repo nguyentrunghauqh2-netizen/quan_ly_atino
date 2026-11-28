@@ -7,7 +7,12 @@
   const esc = value => M.esc(value == null ? '' : value);
   const cash = value => M.money(Number(value) || 0);
   const arr = (data,key) => Array.isArray(data[key]) ? data[key] : [];
-  const numeric = (form,key) => Number(form.elements[key]?.value || 0);
+  function payrollAmount(form, key, fallback) {
+    const input = form.elements[key];
+    if (!input.value) return 0;
+    const amount = AtinoMoney.read(input);
+    return amount >= 0 && amount <= Number(input.getAttribute('max')) ? amount : fallback || 0;
+  }
   const val = (form,key) => String(form.elements[key]?.value || '').trim();
   const selected = (a,b) => a === b ? ' selected' : '';
   const checked = value => value ? ' checked' : '';
@@ -16,7 +21,17 @@
     const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
     return match ? `${match[3]}/${match[2]}/${match[1]}` : M.date(value);
   };
-  const stat = (key,label,value,note='') => `<button type="button" class="am-stat am-overview-card" data-figure="${key}" aria-haspopup="dialog"><div class="am-stat-top"><span>${esc(label)}</span></div><strong>${esc(value)}</strong>${note?`<p>${esc(note)}</p>`:''}</button>`;
+  const figureHints = {
+  "working": "Xem nhân viên trong ca hiện tại",
+  "employees": "Xem danh sách nhân viên",
+  "salary": "Xem dự toán từng nhân viên",
+  "customers": "Xem hồ sơ khách hàng",
+  "repeat": "Xem khách đã mua từ hai lần",
+  "spend": "Xem giao dịch của khách hàng",
+  "purchases": "Xem lịch sử mua hàng",
+  "customerReturns": "Xem phiếu đổi của khách"
+};
+  const stat = (key,label,value,note='') => `<button type="button" class="am-stat am-overview-card" data-figure="${key}" aria-haspopup="dialog"><div class="am-stat-top"><span>${esc(label)}</span></div><strong>${esc(value)}</strong>${note?`<p>${esc(note)}</p>`:''}<span class="am-overview-card-foot"><span>${esc(figureHints[key])}</span>${M.icon('chevron')}</span></button>`;
   const isBirthday = person => Boolean(person.birthday && person.birthday.slice(5) === M.today().slice(5));
   const field = (label,name,value='',attrs='',type='text') => `<label class="am-field">${esc(label)}<input name="${esc(name)}" type="${type}" value="${esc(value)}" ${attrs}></label>`;
   const area = (label,name,value='',attrs='') => `<label class="am-field am-span-2">${esc(label)}<textarea name="${esc(name)}" rows="3" ${attrs}>${esc(value)}</textarea></label>`;
@@ -67,9 +82,8 @@
   }
   M.register('customers',{title:'Khách hàng',kicker:'Hồ sơ và giao dịch',render(){
     const customers=arr(M.data,'customers');
-    const month=M.today().slice(5,7);
-    const birthdays=customers.filter(c=>c.birthday?.slice(5,7)===month);
-    return `<div class="am-stat-grid">${stat('customers','Khách hàng',String(customers.length))}${stat('birthday','Sinh nhật tháng này',String(birthdays.length),`Hôm nay: ${customers.filter(c=>isBirthday(c)).length}`)}${stat('spend','Chi tiêu đã ghi nhận',cash(customers.reduce((n,c)=>n+(Number(c.spend)||0),0)))}</div><div class="am-panel">${panelHead('Danh sách khách hàng','',`<button type="button" class="am-btn secondary" data-customers-export>Xuất Excel</button><button type="button" class="am-btn" data-customer-add>Thêm khách hàng</button>`)}<div class="am-toolbar"><input class="am-search" type="search" data-customer-query placeholder="Tìm tên, mã, số điện thoại…" aria-label="Tìm khách hàng" value="${esc(ui.customerQuery)}"><span class="amp-count" data-customer-count>${customersFiltered().length} khách hàng</span></div><div class="am-table-wrap"><table class="am-table"><thead><tr><th>Khách hàng</th><th>Số điện thoại</th><th>Chi tiêu</th><th>Mua gần nhất</th><th>Thao tác</th></tr></thead><tbody data-customer-rows>${customerRows()}</tbody></table></div></div>`;
+    const repeatCustomers=customers.filter(c=>c.orderCount>=2);
+    return `<div class="am-stat-grid">${stat('customers','Khách hàng',String(customers.length))}${stat('repeat','Khách quay lại',String(repeatCustomers.length))}${stat('spend','Chi tiêu đã ghi nhận',cash(customers.reduce((n,c)=>n+(Number(c.spend)||0),0)))}</div><div class="am-panel">${panelHead('Danh sách khách hàng','',`<button type="button" class="am-btn secondary" data-customers-export>Xuất Excel</button><button type="button" class="am-btn" data-customer-add>Thêm khách hàng</button>`)}<div class="am-toolbar"><input class="am-search" type="search" data-customer-query placeholder="Tìm tên, mã, số điện thoại…" aria-label="Tìm khách hàng" value="${esc(ui.customerQuery)}"><span class="amp-count" data-customer-count>${customersFiltered().length} khách hàng</span></div><div class="am-table-wrap"><table class="am-table"><thead><tr><th>Khách hàng</th><th>Số điện thoại</th><th>Chi tiêu</th><th>Mua gần nhất</th><th>Thao tác</th></tr></thead><tbody data-customer-rows>${customerRows()}</tbody></table></div></div>`;
   },bind(root){
     const update=()=>{root.querySelector('[data-customer-rows]').innerHTML=customerRows();root.querySelector('[data-customer-count]').textContent=customersFiltered().length+' khách hàng';};
     root.querySelector('[data-customer-query]').addEventListener('input',e=>{ui.customerQuery=e.target.value;update();});
@@ -78,17 +92,14 @@
   }});
 
   // Employees, schedule and salary estimates -------------------------------
-  const shiftHours = s => {const a=String(s.start||'').split(':').map(Number),b=String(s.end||'').split(':').map(Number);return Math.max(0,((b[0]*60+b[1])-(a[0]*60+a[1]))/60)||0;};
-  const monthShifts = () => arr(M.data,'shifts').filter(s=>String(s.date||'').startsWith(ui.staffMonth||M.today().slice(0,7)));
   const staffSearchText = s => [s.code, s.name, s.username, s.phone, s.jobTitle];
   const staffFiltered = () => arr(M.data,'staff').filter(s=>Search.match(staffSearchText(s),ui.staffQuery)&&(ui.staffStatus==='all'||(ui.staffStatus==='active'?s.active!==false:s.active===false)));
-  function payrollRows(people=staffFiltered()){return people.map(s=>{const shifts=monthShifts().filter(x=>x.employeeId===s.code);const completed=shifts.filter(x=>x.status==='completed').reduce((n,x)=>n+shiftHours(x),0);const planned=shifts.reduce((n,x)=>n+shiftHours(x),0);const hourly=s.payType==='hourly';let pay=hourly?completed*(Number(s.hourlyRate)||0):(Number(s.baseSalary)||0);if(s.startDate&&s.startDate.slice(0,7)>(ui.staffMonth||M.today().slice(0,7)))pay=0;return{person:s,completed,planned,pay,hourly};});}
   M.showEmployeeProfile = function(code, fallbackName = '') {
     const person = arr(M.data,'staff').find(row=>row.code===code);
     const details = person || {code,name:fallbackName};
     const dialog = M.dialog({title:'Thông tin nhân viên',body:
       '<dl class="am-kv">' +
-      [['Mã nhân viên',details.code],['Họ tên',details.name],['Số điện thoại',details.phone],['Địa chỉ',details.address]].map(([label,value])=>
+      [['Mã nhân viên',details.code],['Họ tên',details.name],['Ca làm ngày '+dateOnly(ui.workDate||M.today()),scheduleText(code,ui.workDate||M.today()).join(' · ')||'Chưa có lịch trong ngày'],['Số điện thoại',details.phone],['Địa chỉ',details.address]].map(([label,value])=>
         '<div><dt>'+esc(label)+'</dt><dd>'+esc(value||'Chưa cập nhật')+'</dd></div>'
       ).join('') + '</dl>' +
       (person?'<div class="am-actions amp-keyline"><button type="button" class="am-btn secondary" data-profile-edit>Sửa thông tin</button></div>':''),
@@ -101,67 +112,113 @@
     const p=person||{};const isSelf=p.code===M.data.user?.code;
     const profileOptions=(key,presets,emptyLabel)=>[['',emptyLabel],...[...new Set([...presets,...arr(M.data,'staff').map(row=>row[key]),p[key]])].filter(value=>typeof value==='string'&&value.trim()).map(value=>[value,value])];
     const jobOptions=profileOptions('jobTitle',['Quản lý cửa hàng','Ca trưởng','Nhân viên cửa hàng','Nhân viên bán hàng','Thu ngân'],'Chưa chọn chức vụ');
-    const shiftOptions=profileOptions('defaultShift',['Ca sáng · 08:00–14:00','Ca chiều · 14:00–20:00'],'Theo lịch phân ca');
-    M.dialog({title:p.code?'Sửa nhân viên · '+p.code:'Thêm nhân viên',wide:true,submitLabel:p.code?'Lưu thông tin':'Tạo nhân viên',body:`<div class="am-form-grid">${field('Họ và tên *','name',p.name,'required maxlength="100"')}${field('Số điện thoại','phone',p.phone,'maxlength="25"','tel')}${field('Địa chỉ','address',p.address,'maxlength="300"')}${selectField('Chức vụ / công việc','jobTitle',jobOptions,p.jobTitle||'')}${field('Ngày vào làm','startDate',p.startDate,'','date')}${selectField('Cách tính lương','payType',[['monthly','Lương theo tháng'],['hourly','Lương theo giờ']],p.payType||'monthly')}${selectField('Ca làm thường lệ','defaultShift',shiftOptions,p.defaultShift||'')}${field('Lương tháng (đ)','baseSalary',p.baseSalary||0,'min="0" max="1000000000" step="1"','number')}${field('Lương giờ (đ/giờ)','hourlyRate',p.hourlyRate||0,'min="0" max="10000000" step="1"','number')}</div><h3 class="amp-keyline">Tài khoản đăng nhập</h3><div class="am-form-grid">${field('Tên đăng nhập *','username',p.username,`${p.code?'readonly':'minlength="3"'} required maxlength="50" autocomplete="off"`)}${selectField('Quyền tài khoản','role',[['employee','Nhân viên'],['manager','Quản lý']],p.role||'employee',isSelf?'disabled':'')}${field(p.code?'Mật khẩu mới (bỏ trống để giữ)':'Mật khẩu (từ 8 ký tự) *','password','',`${p.code?'':'required'} minlength="8" maxlength="256" autocomplete="new-password"`,'password')}${activeField(p.active!==false,isSelf)}</div>`,onOpen(form){const update=()=>{const hourly=form.elements.payType.value==='hourly';form.elements.baseSalary.closest('label').hidden=hourly;form.elements.hourlyRate.closest('label').hidden=!hourly;};form.elements.payType.addEventListener('change',update);update();},onSubmit:async form=>{
-      await E.saveEmployee({code:p.code,name:val(form,'name'),phone:val(form,'phone'),address:val(form,'address'),jobTitle:val(form,'jobTitle'),startDate:val(form,'startDate'),payType:val(form,'payType'),defaultShift:val(form,'defaultShift'),baseSalary:numeric(form,'baseSalary'),hourlyRate:numeric(form,'hourlyRate'),username:val(form,'username'),password:form.elements.password.value,role:form.elements.role.value,active:form.elements.active.checked});
+    M.dialog({title:p.code?'Sửa nhân viên · '+p.code:'Thêm nhân viên',wide:true,submitLabel:p.code?'Lưu thông tin':'Tạo nhân viên',body:`<div class="am-form-grid">${field('Họ và tên *','name',p.name,'required maxlength="100"')}${field('Số điện thoại','phone',p.phone,'maxlength="25"','tel')}${field('Địa chỉ','address',p.address,'maxlength="300"')}${selectField('Chức vụ / công việc','jobTitle',jobOptions,p.jobTitle||'')}${field('Ngày vào làm','startDate',p.startDate,'','date')}${selectField('Cách tính lương','payType',[['monthly','Lương theo tháng'],['hourly','Lương theo giờ']],p.payType||'monthly')}${field('Lương tháng (đ)','baseSalary',AtinoMoney.format(p.baseSalary||0),'data-money inputmode="numeric" min="0" max="1000000000"')}${field('Lương giờ (đ/giờ)','hourlyRate',AtinoMoney.format(p.hourlyRate||0),'data-money inputmode="numeric" min="0" max="10000000"')}</div><h3 class="amp-keyline">Tài khoản đăng nhập</h3><div class="am-form-grid">${field('Tên đăng nhập *','username',p.username,`${p.code?'readonly':'minlength="3"'} required maxlength="50" autocomplete="off"`)}${selectField('Quyền tài khoản','role',[['employee','Nhân viên'],['manager','Quản lý']],p.role||'employee',isSelf?'disabled':'')}${field(p.code?'Mật khẩu mới (bỏ trống để giữ)':'Mật khẩu (từ 8 ký tự) *','password','',`${p.code?'':'required'} minlength="8" maxlength="256" autocomplete="new-password"`,'password')}${activeField(p.active!==false,isSelf)}</div>`,onOpen(form){const update=()=>{const hourly=form.elements.payType.value==='hourly';form.elements.baseSalary.closest('label').hidden=hourly;form.elements.baseSalary.disabled=hourly;form.elements.hourlyRate.closest('label').hidden=!hourly;form.elements.hourlyRate.disabled=!hourly;};form.elements.payType.addEventListener('change',update);update();},onSubmit:async form=>{
+      await E.saveEmployee({code:p.code,name:val(form,'name'),phone:val(form,'phone'),address:val(form,'address'),jobTitle:val(form,'jobTitle'),startDate:val(form,'startDate'),payType:val(form,'payType'),defaultShift:p.defaultShift||'',baseSalary:payrollAmount(form,'baseSalary',p.baseSalary),hourlyRate:payrollAmount(form,'hourlyRate',p.hourlyRate),username:val(form,'username'),password:form.elements.password.value,role:form.elements.role.value,active:form.elements.active.checked});
       await refreshSaved(p.code?'Đã cập nhật nhân viên.':'Đã tạo hồ sơ và tài khoản nhân viên.');
     }});
   }
-  function shiftForm(shift=null){
-    const s=shift||{};const people=arr(M.data,'staff').filter(p=>p.active!==false||p.code===s.employeeId);
-    if(!people.length){M.toast('Cần có nhân viên hoạt động trước khi phân ca.');return;}
-    M.dialog({title:s.id?'Sửa ca làm':'Phân ca làm việc',wide:true,body:`<div class="am-form-grid">${selectField('Nhân viên *','employeeId',people.map(p=>[p.code,p.code+' · '+p.name]),s.employeeId||people[0].code,'required')}${field('Ngày làm *','date',s.date||M.today(),'required','date')}${field('Bắt đầu *','start',s.start||'08:00','required','time')}${field('Kết thúc *','end',s.end||'14:00','required','time')}${selectField('Trạng thái','status',[['planned','Đã phân công'],['completed','Đã hoàn thành']],s.status||'planned')}${area('Ghi chú ca làm','note',s.note,'maxlength="500"')}</div>`,onSubmit:async form=>{
-      const data={id:s.id,employeeId:val(form,'employeeId'),date:val(form,'date'),start:val(form,'start'),end:val(form,'end'),status:val(form,'status'),note:val(form,'note')};
-      if(data.end<=data.start)throw new Error('Giờ kết thúc phải sau giờ bắt đầu trong cùng ngày.');
-      if(data.status==='completed'&&data.date>M.today())throw new Error('Chưa thể xác nhận hoàn thành ca làm ở ngày tương lai.');
-      await E.saveShift(data);await refreshSaved(s.id?'Đã cập nhật ca làm.':'Đã phân ca cho nhân viên.');
-    }});
+  function scheduleText(code,date){
+    const shifts=arr(M.data,'shifts').filter(s=>s.employeeId===code && s.date===date);
+    return E.workSlots.filter(slot=>shifts.some(s=>E.matchesSlot(s,slot)))
+      .map(slot=>slot.name+' · '+slot.start+'–'+slot.end);
   }
-  function removeShift(s){const p=arr(M.data,'staff').find(x=>x.code===s.employeeId);M.dialog({title:'Xóa ca làm',submitLabel:'Xóa ca',body:`<p>Xóa ca <strong>${esc(s.start)} – ${esc(s.end)}</strong> ngày <strong>${esc(dateOnly(s.date))}</strong> của <strong>${esc(p?.name||s.employeeId)}</strong>?</p>${s.status==='completed'?'<p class="am-note">Xóa ca đã hoàn thành sẽ cập nhật giờ công và dự toán lương.</p>':''}`,onSubmit:async()=>{await E.deleteShift(s.id);await refreshSaved('Đã xóa ca làm.');}});}
-  function completeShift(s){if(s.date>M.today()){M.toast('Chưa thể hoàn thành ca ở ngày tương lai.');return;}M.dialog({title:'Xác nhận ca đã hoàn thành',submitLabel:'Xác nhận hoàn thành',body:`<p>Ca ngày <strong>${esc(dateOnly(s.date))}</strong>, từ <strong>${esc(s.start)} đến ${esc(s.end)}</strong>, thời lượng <strong>${numberFormat(shiftHours(s))} giờ</strong>.</p><p class="am-note">Xác nhận thời gian làm thực tế.</p>`,onSubmit:async()=>{await E.saveShift({...s,status:'completed'});await refreshSaved('Đã xác nhận hoàn thành ca làm.');}});}
-  function employeeTable(){const people=staffFiltered();return `<div class="am-table-wrap"><table class="am-table"><thead><tr><th>Nhân viên</th><th>Chức vụ</th><th>Lương cấu hình</th><th>Thời gian làm</th><th>Tài khoản</th><th>Thao tác</th></tr></thead><tbody>${people.length?people.map(p=>`<tr><td><div class="amp-person"><span class="amp-avatar">${esc((p.name||'NV').split(/\s+/).slice(-2).map(x=>x[0]).join('').toUpperCase())}</span><div><button type="button" class="am-text-btn" data-profile="${esc(p.code)}">${esc(p.name)}</button><small>${esc(p.code)}${p.phone?' · '+esc(p.phone):''}</small></div></div></td><td>${esc(p.jobTitle||'Chưa cập nhật')}<small class="amp-row-sub">${p.role==='manager'?'Quyền Quản lý':'Quyền Nhân viên'}</small></td><td>${p.payType==='hourly'?(p.hourlyRate?cash(p.hourlyRate)+' / giờ':'Chưa cấu hình'):(p.baseSalary?cash(p.baseSalary)+' / tháng':'Chưa cấu hình')}</td><td>${esc(p.defaultShift||'Chưa có ca thường lệ')}<small class="amp-row-sub">Vào làm: ${esc(p.startDate?dateOnly(p.startDate):'Chưa cập nhật')}</small></td><td>${M.badge(p.active===false?'Đã khóa':'Đang hoạt động',p.active===false?'neutral':'green')}<small class="amp-row-sub">${esc(p.username)}</small></td><td><button type="button" class="am-btn secondary small" data-employee-edit="${esc(p.code)}">Xem / sửa</button></td></tr>`).join(''):`<tr><td colspan="6">${M.empty('Không tìm thấy nhân viên')}</td></tr>`}</tbody></table></div>`;}
-  function shiftsTable(){const ids=new Set(staffFiltered().map(p=>p.code));const shifts=monthShifts().filter(s=>ids.has(s.employeeId)).sort((a,b)=>String(a.date).localeCompare(String(b.date))||String(a.start).localeCompare(String(b.start)));return `<div class="am-table-wrap"><table class="am-table"><thead><tr><th>Ngày làm</th><th>Nhân viên</th><th>Ca làm</th><th>Thời lượng</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${shifts.length?shifts.map(s=>{const p=arr(M.data,'staff').find(x=>x.code===s.employeeId);return `<tr><td><strong>${esc(dateOnly(s.date))}</strong>${s.date===M.today()?'<small class="amp-row-sub">Hôm nay</small>':''}</td><td>${esc(p?.name||s.employeeId)}<small class="amp-row-sub">${esc(s.employeeId)}</small></td><td>${esc(s.start)} – ${esc(s.end)}${s.note?`<small class="amp-row-sub">${esc(s.note)}</small>`:''}</td><td>${numberFormat(shiftHours(s))} giờ</td><td>${M.badge(s.status==='completed'?'Đã hoàn thành':'Đã phân công',s.status==='completed'?'green':'blue')}</td><td><div class="am-actions"><button type="button" class="am-btn secondary small" data-shift-edit="${esc(s.id)}">Sửa</button>${s.status!=='completed'&&s.date<=M.today()?`<button type="button" class="am-btn ghost small" data-shift-complete="${esc(s.id)}">Hoàn thành</button>`:''}<button type="button" class="am-btn ghost small" data-shift-delete="${esc(s.id)}" aria-label="Xóa ca ngày ${esc(dateOnly(s.date))} của ${esc(p?.name||s.employeeId)}">Xóa</button></div></td></tr>`;}).join(''):`<tr><td colspan="6">${M.empty('Chưa có ca làm trong tháng')}</td></tr>`}</tbody></table></div>`;}
-  function salaryTable(){const rows=payrollRows();return `<div class="am-table-wrap"><table class="am-table"><thead><tr><th>Nhân viên</th><th>Hình thức</th><th>Giờ phân công</th><th>Giờ hoàn thành</th><th>Mức lương</th><th>Dự toán tháng</th></tr></thead><tbody>${rows.length?rows.map(({person:p,completed,planned,pay,hourly})=>`<tr><td><button type="button" class="am-text-btn" data-profile="${esc(p.code)}">${esc(p.name)}</button><small class="amp-row-sub">${esc(p.code)}</small></td><td>${hourly?'Theo giờ':'Theo tháng'}</td><td>${numberFormat(planned)} giờ</td><td>${numberFormat(completed)} giờ</td><td>${cash(hourly?p.hourlyRate:p.baseSalary)}${hourly?' / giờ':' / tháng'}</td><td><strong>${cash(pay)}</strong>${!(hourly?p.hourlyRate:p.baseSalary)?'<small class="amp-row-sub">Chưa cấu hình lương</small>':''}</td></tr>`).join(''):`<tr><td colspan="6">${M.empty('Chưa có nhân viên phù hợp')}</td></tr>`}</tbody><tfoot><tr><td colspan="5"><strong>Tổng dự toán theo bộ lọc</strong></td><td><strong>${cash(rows.reduce((n,x)=>n+x.pay,0))}</strong></td></tr></tfoot></table></div>`;}
-  function staffContent(){return ui.staffTab==='shifts'?shiftsTable():ui.staffTab==='payroll'?salaryTable():employeeTable();}
+  function employeeTable(){const people=staffFiltered();return `<div class="am-table-wrap"><table class="am-table"><thead><tr><th>Nhân viên</th><th>Chức vụ</th><th>Lương cấu hình</th><th>Thời gian làm việc</th><th>Tài khoản</th><th>Thao tác</th></tr></thead><tbody>${people.length?people.map(p=>`<tr><td><div class="amp-person"><span class="amp-avatar">${esc((p.name||'NV').split(/\s+/).slice(-2).map(x=>x[0]).join('').toUpperCase())}</span><div><button type="button" class="am-text-btn" data-profile="${esc(p.code)}">${esc(p.name)}</button><small>${esc(p.code)}${p.phone?' · '+esc(p.phone):''}</small></div></div></td><td>${esc(p.jobTitle||'Chưa cập nhật')}<small class="amp-row-sub">${p.role==='manager'?'Quyền Quản lý':'Quyền Nhân viên'}</small></td><td>${p.payType==='hourly'?(p.hourlyRate?cash(p.hourlyRate)+' / giờ':'Chưa cấu hình'):(p.baseSalary?cash(p.baseSalary)+' / tháng':'Chưa cấu hình')}</td><td>${scheduleText(p.code,ui.workDate).map(text=>'<div>'+esc(text)+'</div>').join('')||'Chưa có lịch trong ngày'}<small class="amp-row-sub">Vào làm: ${esc(p.startDate?dateOnly(p.startDate):'Chưa cập nhật')}</small></td><td>${M.badge(p.active===false?'Đã khóa':'Đang hoạt động',p.active===false?'neutral':'green')}<small class="amp-row-sub">${esc(p.username)}</small></td><td><button type="button" class="am-btn secondary small" data-employee-edit="${esc(p.code)}">Xem / sửa</button></td></tr>`).join(''):`<tr><td colspan="6">${M.empty('Không tìm thấy nhân viên')}</td></tr>`}</tbody></table></div>`;}
+  function salaryEstimate(month){
+    const shifts=arr(M.data,'shifts').filter(s=>s.date?.startsWith(month));
+    return M.data.staff.map(person=>{
+      const hourly=person.payType==='hourly';
+      let hours=0;
+      let missingHours=false;
+      for(const shift of shifts.filter(s=>s.employeeId===person.code)){
+        if(shift.fullDay){missingHours=true;continue;}
+        if(shift.status!=='completed')continue;
+        const minutes=t=>Number(t.slice(0,2))*60+Number(t.slice(3,5));
+        hours+=Math.max(0,minutes(shift.end)-minutes(shift.start))/60;
+      }
+      let amount=hourly?Math.round(hours*(person.hourlyRate||0)):(person.baseSalary||0);
+      if(person.startDate?.slice(0,7)>month)amount=0;
+      return {person,amount,hours,missingHours,basis:hourly?numberFormat(hours)+' giờ đã ghi nhận'+(missingHours?' · Chưa tính ngày làm thiếu số giờ':''):'Lương tháng'};
+    });
+  }
+  function workingNow(now=new Date()){
+    const time=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Ho_Chi_Minh',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(now);
+    const slot=E.workSlots.find(s=>s.start<=time && time<s.end);
+    if(!slot)return [];
+    const day=E.today(now);
+    const ids=new Set(M.data.shifts.filter(s=>s.date===day && E.matchesSlot(s,slot)).map(s=>s.employeeId));
+    return M.data.staff.filter(p=>p.active!==false && ids.has(p.code));
+  }
+  function dayStaff(slot){
+    const ids=new Set(arr(M.data,'shifts').filter(s=>s.date===ui.workDate && (!slot || E.matchesSlot(s,slot))).map(s=>s.employeeId));
+    return M.data.staff.filter(p=>ids.has(p.code));
+  }
+  function editRoster(){
+    const date=ui.workDate;
+    const assigned=new Set(dayStaff().map(p=>p.code));
+    const people=M.data.staff.filter(p=>p.active!==false || assigned.has(p.code));
+    M.dialog({title:'Lịch làm việc · '+dateOnly(date),submitLabel:'Lưu lịch',body:E.workSlots.map(slot=>{
+      const roster=new Set(dayStaff(slot).map(p=>p.code));
+      return '<fieldset><legend>'+slot.name+' · '+slot.start+'–'+slot.end+'</legend>'+people.map(p=>
+      '<label class="amp-check"><input type="checkbox" name="working" data-slot="'+slot.key+'" value="'+esc(p.code)+'" '+(roster.has(p.code)?'checked':'')+'>'+esc(p.name)+' · '+esc(p.code)+'</label>').join('')+'</fieldset>';}).join(''),
+      onSubmit:async form=>{
+        const changes=Array.from(form.querySelectorAll('[name="working"]')).filter(b=>b.checked!==b.defaultChecked).map(b=>({code:b.value,slot:b.dataset.slot,working:b.checked}));
+        if(changes.length)await E.updateWorkDay({date,changes});
+        await refreshSaved('Đã lưu lịch làm việc.');
+      }});
+  }
   function peopleFigure(button) {
     const key = button.dataset.figure;
     const title = button.querySelector('.am-stat-top').textContent;
     const customers = arr(M.data,'customers');
+    if(key==='salary'){
+      const month=ui.workDate.slice(0,7);
+      const rows=salaryEstimate(month);
+      M.dialog({title:'Dự toán lương tháng '+dateOnly(ui.workDate).slice(3),wide:true,body:'<div class="am-table-wrap"><table class="am-table"><thead><tr><th>Nhân viên</th><th>Cách tính</th><th>Dự toán</th></tr></thead><tbody>'+rows.map(r=>'<tr><td><button class="am-text-btn" type="button" data-person="'+esc(r.person.code)+'">'+esc(r.person.name)+'</button></td><td>'+esc(r.basis)+'</td><td>'+cash(r.amount)+'</td></tr>').join('')+'</tbody></table></div><button type="button" class="am-btn secondary" data-salary-export>Xuất Excel</button>',onOpen(form){
+        form.querySelectorAll('[data-person]').forEach(b=>b.onclick=()=>M.showEmployeeProfile(b.dataset.person));
+        form.querySelector('[data-salary-export]').onclick=event=>{
+          const sheet=window.AtinoReports.salarySheet(month,rows);
+          M.downloadWorkbook('Atino-du-toan-luong-'+month+'.xlsx',[sheet],event.currentTarget);
+        };
+      }});
+      return;
+    }
     if (key === 'spend') {
       const ids = new Set(customers.map(c => c.id));
       const docs = arr(M.data,'movements').filter(d => ids.has(d.customerId) && ['sale','exchange'].includes(d.type));
       return M.showInvoiceList(title, docs.sort((a,b)=>b.when-a.when), 'Chưa có giao dịch');
     }
     let rows, open;
-    if (key === 'customers' || key === 'birthday') {
-      rows = customers.filter(c => (key === 'customers' || c.birthday?.slice(5,7) === M.today().slice(5,7)))
-        .map(c => [c.id,c.name,key === 'birthday' ? dateOnly(c.birthday) : c.phone]);
+    if (key === 'customers' || key === 'repeat') {
+      rows = customers.filter(c => (key === 'customers' || c.orderCount >= 2))
+        .map(c => [c.id,c.name,c.phone]);
       open = id => customerDetail(customers.find(c=>c.id===id));
-    } else if (key === 'shifts' || key === 'completed') {
-      rows = monthShifts().filter(s => key === 'shifts' || s.status === 'completed').map(s => {
-        const person = M.data.staff.find(p=>p.code===s.employeeId);
-        return [s.id,person?.name || s.employeeId,dateOnly(s.date)+' · '+s.start+' – '+s.end+' · '+numberFormat(shiftHours(s))+' giờ'];
-      });
-      open = id => shiftForm(M.data.shifts.find(s=>s.id===id));
     } else {
-      rows = key === 'payroll' ? payrollRows(M.data.staff).map(r=>[r.person.code,r.person.name,cash(r.pay)])
-        : M.data.staff.filter(p=>p.active!==false).map(p=>[p.code,p.name,p.code]);
-      open = M.showEmployeeProfile;
+      const people=key==='working'?workingNow():M.data.staff;
+      rows=people.map(p=>[p.code,p.name,p.code]);
+      open=M.showEmployeeProfile;
     }
     M.dialog({title,body:rows.length ? '<div class="am-table-wrap"><table class="am-table"><tbody>'+rows.map(([id,name,value])=>
       '<tr><td><button type="button" class="am-text-btn" data-record="'+esc(id)+'">'+esc(name)+'</button></td><td>'+esc(value)+'</td></tr>').join('')+'</tbody></table></div>' : M.empty('Chưa có dữ liệu'),
       onOpen(form){form.querySelectorAll('[data-record]').forEach(b=>b.onclick=()=>open(b.dataset.record));}});
   }
-  M.register('employees',{title:'Nhân viên & ca làm',kicker:'Nhân sự cửa hàng',render(){
-    ui.staffMonth ||= M.today().slice(0,7);const staff=arr(M.data,'staff'),shifts=monthShifts(),completed=shifts.filter(s=>s.status==='completed');
-    return `<div class="am-stat-grid">${stat('employees','Nhân viên hoạt động',String(staff.filter(p=>p.active!==false).length))}${stat('shifts','Ca đã phân công',String(shifts.length),'Tháng '+ui.staffMonth.slice(5)+'/'+ui.staffMonth.slice(0,4))}${stat('completed','Giờ đã hoàn thành',numberFormat(completed.reduce((n,s)=>n+shiftHours(s),0))+' giờ',`${completed.length} ca`)}${stat('payroll','Dự toán lương',cash(payrollRows(staff).reduce((n,x)=>n+x.pay,0)),'Tháng '+ui.staffMonth.slice(5)+'/'+ui.staffMonth.slice(0,4))}</div><div class="am-panel">${panelHead('Đội ngũ Atino','',`<button type="button" class="am-btn secondary" data-staff-export>Xuất Excel</button><button type="button" class="am-btn secondary" data-shift-add>Phân ca</button><button type="button" class="am-btn" data-employee-add>Thêm nhân viên</button>`)}<div class="amp-tabs" role="tablist" aria-label="Phân hệ nhân viên">${[['profiles','Hồ sơ nhân viên'],['shifts','Phân ca'],['payroll','Dự toán lương']].map(([v,t])=>`<button type="button" role="tab" aria-selected="${ui.staffTab===v}" data-staff-tab="${v}">${t}</button>`).join('')}</div><div class="am-toolbar"><input class="am-search" type="search" value="${esc(ui.staffQuery)}" data-staff-query placeholder="Tìm nhân viên, mã, chức vụ…" aria-label="Tìm nhân viên"><select data-staff-status aria-label="Lọc trạng thái nhân viên"><option value="all"${selected(ui.staffStatus,'all')}>Tất cả trạng thái</option><option value="active"${selected(ui.staffStatus,'active')}>Đang hoạt động</option><option value="inactive"${selected(ui.staffStatus,'inactive')}>Đã khóa</option></select><label class="amp-check">Tháng <input type="month" data-staff-month value="${esc(ui.staffMonth)}" aria-label="Tháng phân ca và lương"></label></div><div data-staff-content>${staffContent()}</div></div>`;
+  M.register('employees',{title:'Nhân viên',kicker:'Nhân sự cửa hàng',render(){
+    ui.workDate ||= M.today();
+    return '<div class="am-stat-grid">'+stat('working','Nhân viên đang làm',String(workingNow().length),'Theo lịch ca hiện tại')+stat('employees','Tổng số nhân viên',String(M.data.staff.length))+stat('salary','Tiền lương dự kiến',cash(salaryEstimate(ui.workDate.slice(0,7)).reduce((n,r)=>n+r.amount,0)),'Tháng '+dateOnly(ui.workDate).slice(3))+'</div>'+
+      '<div class="am-panel">'+panelHead('Hồ sơ nhân viên','','<button class="am-btn secondary" data-roster>Cập nhật lịch làm</button><button class="am-btn" data-employee-add>Thêm nhân viên</button>')+
+      '<div class="am-toolbar"><label>Ngày làm việc <input type="date" data-work-date value="'+esc(ui.workDate)+'"></label><input type="search" class="am-search" data-staff-query aria-label="Tìm nhân viên" placeholder="Tìm tên, mã, chức vụ…" value="'+esc(ui.staffQuery)+'"><select data-status aria-label="Trạng thái">'+[['all','Tất cả trạng thái'],['active','Đang hoạt động'],['inactive','Đã khóa']].map(([v,t])=>'<option value="'+v+'"'+selected(ui.staffStatus,v)+'>'+t+'</option>').join('')+'</select></div><div data-list>'+employeeTable()+'</div></div>';
   },bind(root){
-    const update=()=>{root.querySelector('[data-staff-content]').innerHTML=staffContent();};
-    root.querySelector('[data-staff-query]').addEventListener('input',e=>{ui.staffQuery=e.target.value;update();});
-    root.querySelector('[data-staff-status]').addEventListener('change',e=>{ui.staffStatus=e.target.value;M.go('employees');});
-    root.querySelector('[data-staff-month]').addEventListener('change',e=>{if(e.target.value){ui.staffMonth=e.target.value;M.go('employees');}});
+    const update=()=>root.querySelector('[data-list]').innerHTML=employeeTable();
+    root.querySelector('[data-work-date]').onchange=e=>{ui.workDate=e.target.value||M.today();M.go('employees');};
+    root.querySelector('[data-status]').onchange=e=>{ui.staffStatus=e.target.value;update();};
+    root.querySelector('[data-staff-query]').oninput=e=>{ui.staffQuery=e.target.value;update();};
     Search.attach(root.querySelector('[data-staff-query]'), {items: () => staffFiltered().map(s => ({value: s.code, label: s.name, detail: [s.code, s.jobTitle, s.phone].filter(Boolean).join(' · '), searchText: staffSearchText(s)})),onSelect:item=>M.showEmployeeProfile(item.value,item.label)});
-    root.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.figure)peopleFigure(b);if(b.dataset.profile)M.showEmployeeProfile(b.dataset.profile);if(b.dataset.staffTab){ui.staffTab=b.dataset.staffTab;M.go('employees');}if(b.hasAttribute('data-employee-add'))employeeForm();if(b.dataset.employeeEdit){const p=arr(M.data,'staff').find(x=>x.code===b.dataset.employeeEdit);if(p)employeeForm(p);}if(b.hasAttribute('data-shift-add'))shiftForm();for(const [key,fn] of [['shiftEdit',shiftForm],['shiftDelete',removeShift],['shiftComplete',completeShift]])if(b.dataset[key]){const s=arr(M.data,'shifts').find(x=>x.id===b.dataset[key]);if(s)fn(s);}if(b.hasAttribute('data-staff-export')){if(ui.staffTab==='payroll')M.downloadTable('Atino_du_toan_luong_'+ui.staffMonth,'Dự toán lương',[['Mã nhân viên','Họ tên','Hình thức','Giờ phân công','Giờ hoàn thành','Mức lương','Dự toán'],...payrollRows().map(x=>[x.person.code,x.person.name,x.hourly?'Theo giờ':'Theo tháng',x.planned,x.completed,x.hourly?x.person.hourlyRate:x.person.baseSalary,x.pay])],b,{5:'money',6:'money'});else if(ui.staffTab==='shifts'){const ids=new Set(staffFiltered().map(p=>p.code));M.downloadTable('Atino_phan_ca_'+ui.staffMonth,'Lịch phân ca',[['Ngày','Mã nhân viên','Họ tên','Bắt đầu','Kết thúc','Số giờ','Trạng thái','Ghi chú'],...monthShifts().filter(s=>ids.has(s.employeeId)).map(s=>[s.date,s.employeeId,arr(M.data,'staff').find(p=>p.code===s.employeeId)?.name||'',s.start,s.end,shiftHours(s),s.status==='completed'?'Đã hoàn thành':'Đã phân công',s.note])],b);}else M.downloadTable('Atino_nhan_vien','Danh sách nhân viên',[['Mã','Họ tên','Điện thoại','Chức vụ','Ngày vào làm','Ca thường lệ','Hình thức lương','Lương tháng','Lương giờ','Quyền','Trạng thái'],...staffFiltered().map(p=>[p.code,p.name,p.phone,p.jobTitle,p.startDate,p.defaultShift,p.payType,p.baseSalary,p.hourlyRate,p.role==='manager'?'Quản lý':'Nhân viên',p.active===false?'Đã khóa':'Hoạt động'])],b,{7:'money',8:'money'});}});
+    root.onclick=e=>{
+      const b=e.target.closest('button');if(!b)return;
+      if(b.dataset.figure)peopleFigure(b);
+      if(b.dataset.profile)M.showEmployeeProfile(b.dataset.profile);
+      if(b.hasAttribute('data-roster'))editRoster();
+      if(b.hasAttribute('data-employee-add'))employeeForm();
+      if(b.dataset.employeeEdit)employeeForm(M.data.staff.find(p=>p.code===b.dataset.employeeEdit));
+    };
   }});
-
 })();

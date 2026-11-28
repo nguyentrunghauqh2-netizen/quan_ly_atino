@@ -40,15 +40,16 @@ Hệ thống **không dùng thuật toán phức tạp** mà chỉ dùng các b�
 - Khi bán hàng hoặc xuất kho ra ngoài, kiểm tra `so_luong_mua <= stock_qty` trong SQL Transaction. Nếu đủ thì trừ `stock_qty` và ghi chứng từ; nếu thiếu thì báo số lượng còn lại.
 
 ### Thuật toán 2: Tính tiền hóa đơn & Phân biệt Người bán / Thu ngân
-- Nhân số lượng với đơn giá niêm yết của từng dòng (`qty * unit_price`) và cộng thành tổng tiền khách phải trả (`total_amount`).
-- Lưu số tiền thực trả của từng dòng (`paid_total`) cùng hóa đơn để dùng làm căn cứ khi đổi hàng.
+- Nhân số lượng với đơn giá niêm yết của từng dòng (`qty * unit_price`) và cộng thành `gross_amount`.
+- Nếu đúng ngày sinh của khách có hồ sơ, lấy 10% của `gross_amount`, làm tròn đến đồng và giới hạn theo phần còn lại của 200.000đ sau khi trừ ưu đãi đã dùng trong ngày. Ví dụ, khách đã giảm 150.000đ thì hóa đơn tiếp theo chỉ được giảm thêm tối đa 50.000đ.
+- Phân bổ khoản giảm theo giá trị từng dòng, sau đó chia các đồng lẻ còn lại theo thứ tự dòng. Lưu số tiền thực trả của từng dòng (`paid_total`). Cộng các khoản thực trả thành `total_amount`.
 - Lưu cả `seller_code` (người bán để thống kê doanh thu nhân viên) và `cashier_code` (thu ngân thu tiền).
 
 ### Thuật toán 3: Kiểm tra đổi hàng (Trong 30 ngày, không đổi hàng lỗi)
 1. Kiểm tra hóa đơn gốc có tồn tại và `(ngay_hien_tai - ngay_mua) <= 30 ngày`.
 2. **Kiểm tra tình trạng sản phẩm trả:** Bắt buộc là hàng còn nguyên vẹn (`condition_ok = True`). Nếu là hàng lỗi → từ chối ngay.
 3. Tính tổng số lượng đã đổi ở các phiếu đổi trước đó để đảm bảo không đổi vượt quá số lượng đã mua.
-4. Cộng tổng tiền thực trả (`paid_total`) của các món trả lại thành `credit_amount`.
+4. Tính tiền của số chiếc trả theo tỷ lệ trên `paid_total` từng dòng. Lấy giá trị lũy kế của số chiếc đã đổi và đang đổi, rồi trừ giá trị đã ghi nhận ở các phiếu trước. Cộng các khoản này thành `credit_amount`.
 5. Tính tổng tiền các món khách lấy mới (`replacement_total`). Nếu `replacement_total < credit_amount` → báo lỗi vì không hoàn tiền thừa.
 6. Trong cùng một SQL Transaction: cộng lại hàng trả vào `stock_qty`, trừ hàng mới lấy khỏi `stock_qty`, lưu phiếu đổi và ghi `audit_logs`.
 

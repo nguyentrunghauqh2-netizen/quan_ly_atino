@@ -108,3 +108,9 @@
   .atino-suggest-popover { border-color: CanvasText; }
   .atino-suggest-option-active { outline: 2px solid Highlight; outline-offset: -2px; }
 }
+
+.atino-product-picker:popover-open { position:fixed; inset:auto; margin:0; box-sizing:border-box; padding:6px; border:1px solid #ced9e7; border-radius:8px; background:white; color:#20324a; box-shadow:0 6px 20px #17385624; font:14px/1.45 system-ui,sans-serif; }
+.atino-product-picker input { box-sizing:border-box; width:100%; padding:7px 9px; border:1px solid #b9c9dd; border-radius:4px; font:inherit; }
+.atino-product-options { overflow:auto; max-height:min(220px,32vh); margin-top:4px; }
+.atino-product-options button { display:block; width:100%; padding:6px 8px; text-align:left; background:white; color:inherit; border:0; font:inherit; cursor:pointer; }
+.atino-product-options button:is(:hover,:focus-visible) { background:#eaf2ff; }

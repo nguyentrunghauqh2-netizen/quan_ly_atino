@@ -39,7 +39,7 @@ quan_ly_atino/
 1. **Đăng nhập, Phân quyền & Tài khoản cá nhân:** 2 vai trò (`manager` và `employee`), hồ sơ cá nhân, ảnh đại diện, đổi mật khẩu, mã khôi phục mật khẩu dùng 1 lần.
 2. **Sản phẩm, Tem nhãn & Tồn kho chung theo từng Size:** Tồn kho dùng **1 số lượng chung (`stock_qty`)** cho mỗi `(sản phẩm, kích cỡ)` — không tách Kho tổng/Quầy bán, không có hàng lỗi chờ xử lý (`held`); gộp thông tin in tem nhãn (mã vạch + QR) và đánh giá tồn vào sản phẩm.
 3. **Nhập / Xuất kho & 1 Nhà cung cấp đầu mối (`NCC001`):** Nhập hàng cộng `stock_qty` (Quản lý nhập/bổ sung giá vốn, Nhân viên chỉ nhập số lượng và giá bán); xuất kho chỉ xuất ra ngoài cửa hàng.
-4. **Bán hàng & Thu ngân (POS):** Tách Người bán và Thu ngân, không có voucher/giảm giá sinh nhật, thanh toán Tiền mặt/Chuyển khoản, in hóa đơn.
+4. **Bán hàng & Thu ngân (POS):** Tách Người bán và Thu ngân, giảm 10% đúng ngày sinh với hạn mức 200.000đ mỗi khách trong ngày, thanh toán Tiền mặt/Chuyển khoản, in hóa đơn.
 5. **Đổi hàng:** Trong vòng 30 ngày, **chỉ nhận hàng nguyên vẹn đạt chuẩn (từ chối hàng lỗi)**, đổi ngang hoặc cao hơn giá thực trả và thu chênh lệch.
 6. **Khách hàng (CRM):** Lưu hồ sơ, tra cứu lịch sử đơn theo mã khách hàng.
 7. **Nhân sự & Ca làm (HRM):** Hồ sơ, phân ca (chặn trùng giờ), dự toán lương tháng.

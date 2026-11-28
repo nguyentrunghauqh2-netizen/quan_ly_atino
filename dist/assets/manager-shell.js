@@ -50,7 +50,7 @@ const paths = {
 };
 const nav = [
  ['overview','Tổng quan','ĐIỀU HÀNH'],['inventory','Sản phẩm'],['receipts','Nhập kho'],['dispatches','Xuất kho'],['suppliers','Nhà cung cấp'],
- ['customers','Khách hàng','QUẢN LÝ'],['employees','Nhân viên & ca làm'],['returns','Đổi hàng'],['sales','Hóa đơn & doanh thu'],['audit','Nhật ký thao tác']
+ ['customers','Khách hàng','QUẢN LÝ'],['employees','Nhân viên'],['returns','Đổi hàng'],['sales','Hóa đơn & doanh thu'],['audit','Nhật ký thao tác']
 ];
 let app, view, renderToken = 0, toastTimer;
 let inventoryFilters = {search:'',category:''};
@@ -117,6 +117,7 @@ const M = window.AtinoManager = {
   Search.close();
   const dialog=document.createElement('dialog');
   dialog.className='am-dialog'+(wide?' am-dialog-wide':'');
+  dialog.dataset.screen=M.route;
   const headingId='am-dialog-title-'+Math.random().toString(36).slice(2);
   dialog.setAttribute('aria-labelledby',headingId);
   dialog.innerHTML=`<form><header class="am-dialog-head"><h2 id="${headingId}">${e(title)}</h2><button type="button" class="am-icon-btn" data-am-cancel aria-label="Đóng">${M.icon('close')}</button></header><div class="am-dialog-body">${body}</div><div class="am-error" role="alert" hidden></div><footer class="am-dialog-foot"><button type="button" class="am-btn secondary" data-am-cancel>Đóng</button>${onSubmit?`<button type="submit" class="am-btn">${e(submitLabel)}</button>`:''}</footer></form>`;
@@ -173,7 +174,9 @@ function buildShell(){
   const link=event.target.closest('[data-invoice-id]');
   if(link) M.showInvoice(link.dataset.invoiceId,link.dataset.invoiceProduct||'');
  });
- app.querySelectorAll('[data-am-route]').forEach(button=>button.addEventListener('click',()=>M.go(button.dataset.amRoute)));
+ app.querySelectorAll('[data-am-route]').forEach(button=>button.addEventListener('click',()=>{
+  M.go(button.dataset.amRoute);
+ }));
  app.querySelector('[data-am-avatar]').addEventListener('click',()=>window.AtinoAccount.open());
  app.querySelector('[data-am-logout]').addEventListener('click',()=>document.getElementById('logout')?.click());
  app.querySelector('[data-am-refresh]').addEventListener('click',async()=>{try{await M.refresh();M.toast('Đã cập nhật số liệu.');}catch(error){M.toast(error.message);}});
@@ -192,6 +195,7 @@ function render(){
  window.AtinoAccount?.paintAvatar(app.querySelector('[data-am-avatar]'),M.data.user);
  app.querySelectorAll('[data-am-route]').forEach(button=>{const active=button.dataset.amRoute===M.route;button.classList.toggle('active',active);if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});
  const fresh=view.cloneNode(false);view.replaceWith(fresh);view=fresh;
+ view.dataset.screen=M.route;
  view.innerHTML=screen.render(M);
  if(screen.bind)screen.bind(view,M);
  view.querySelectorAll('[data-go]').forEach(button=>button.addEventListener('click',()=>M.go(button.dataset.go)));
@@ -227,17 +231,21 @@ function revenueChart(buckets){
  });
  return `<div class="am-chart"><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Biểu đồ doanh thu ${e(M.periodValue)}; tổng ${e(M.money(values.reduce((s,b)=>s+n(b.value),0)))}"><defs><linearGradient id="am-chart-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#484850"/><stop offset="1" stop-color="#9696a2"/></linearGradient></defs>${markup}</svg>${!highest?'<span class="am-chart-empty">Chưa có doanh thu trong kỳ này</span>':''}</div>`;
 }
+function vietnameseDateInput(input, value, type = 'date') {
+ const display = value ? value.split('-').reverse().join('/') : type === 'month' ? 'mm/yyyy' : 'dd/mm/yyyy';
+ return `<span class="op-date-picker am-local-date"><span aria-hidden="true" data-local-date-display>${e(display)}</span>${input}</span>`;
+}
 function overviewToolbar() {
  const inputType = M.period === 'month' ? 'month' : M.period === 'year' ? 'number' : 'date';
  const periods = [['day','Ngày'],['month','Tháng'],['year','Năm']];
+ const input = `<input type="${inputType}" id="am-period-value" aria-label="Chọn kỳ thống kê" value="${e(M.periodValue)}" ${M.period==='year'?'min="2000" max="2100" step="1"':''}>`;
  return `<div class="am-overview-toolbar">
   <div class="am-period-control">
    <div class="am-segment" role="group" aria-label="Kỳ thống kê">
     ${periods.map(([key,label])=>`<button type="button" data-period="${key}" class="${M.period===key?'selected':''}" aria-pressed="${M.period===key}">${label}</button>`).join('')}
    </div>
-   <label class="am-period-input">${M.icon('calendar')}<input type="${inputType}" id="am-period-value" aria-label="Chọn kỳ thống kê" value="${e(M.periodValue)}" ${M.period==='year'?'min="2000" max="2100" step="1"':''}></label>
+   <label class="am-period-input">${M.icon('calendar')}${inputType==='number'?input:vietnameseDateInput(input,M.periodValue,inputType)}</label>
   </div>
-  <button type="button" class="am-btn" id="am-export-report">${M.icon('download')} Xuất báo cáo Excel</button>
  </div>`;
 }
 function overviewCard(label, value, icon, key, summary, featured = false) {
@@ -504,10 +512,6 @@ M.register('overview',{
    M.period=button.dataset.period;M.periodValue=M.today().slice(0,M.period==='year'?4:M.period==='month'?7:10);render();
   }));
   root.querySelector('#am-period-value').addEventListener('change',event=>{if(!event.target.value||!event.target.checkValidity())return;M.periodValue=event.target.value;render();});
-  root.querySelector('#am-export-report').addEventListener('click',event=>{
-   const sheets=Reports.overviewSheets(M.data,currentMetrics(),M.period,M.periodValue);
-   M.downloadWorkbook('Atino-bao-cao-'+M.periodValue+'.xlsx',sheets,event.currentTarget);
-  });
  }
 });
 function productUnit(product){return window.AtinoCatalog?.unitFor(product)||'sản phẩm';}
@@ -629,7 +633,7 @@ function editProduct(code,onCreated){
   return `<label class="am-field">${label}${control}</label>`;
  }).join('');
  const selectedValues=form=>[...form.querySelectorAll('[data-size-choice]:checked')].map(input=>input.value);
- M.dialog({title:code?'Chỉnh sửa sản phẩm · '+code:'Thêm sản phẩm',wide:true,body:`<div class="am-form-grid"><label class="am-field am-span-2">Tên sản phẩm<input name="name" required maxlength="120" value="${e(product.name)}" placeholder="Tên sản phẩm"></label><label class="am-field">Danh mục<select name="category">${cats.map(cat=>`<option ${cat===chosenCategory?'selected':''}>${e(cat)}</option>`).join('')}</select></label><label class="am-field">Giá bán (đ)<input type="number" name="price" min="1" max="1000000000" step="1" required value="${product.price||''}"></label><fieldset class="am-size-picker am-span-2"><legend>Kích cỡ</legend><div class="am-size-options" data-size-options>${choicesHtml(chosenCategory)}</div><label class="am-check am-size-other-toggle"><input type="checkbox" name="customSizesEnabled"> Kích cỡ khác</label><label class="am-field" data-custom-sizes-field hidden>Tên kích cỡ<input name="customSizes" maxlength="1200" disabled placeholder="XS, XXXL, 45"></label></fieldset><label class="am-field am-span-2">Ảnh sản phẩm<input type="file" name="productImage" accept="image/jpeg,image/png,image/webp"></label>${product.image?'<label class="am-check am-span-2"><input type="checkbox" name="removeImage"> Xóa ảnh sản phẩm</label>':''}<label class="am-field am-span-2">Mô tả<textarea name="description" rows="3" maxlength="1000">${e(product.description)}</textarea></label><details class="am-span-2"><summary>Thông tin trên tem</summary><div class="am-form-grid">${labelFields}</div></details><label class="am-check am-span-2"><input type="checkbox" name="active" ${onCreated?'disabled':''} ${product.active!==false?'checked':''}> Đang kinh doanh</label></div>`,onOpen:form=>{
+ M.dialog({title:code?'Chỉnh sửa sản phẩm · '+code:'Thêm sản phẩm',wide:true,body:`<div class="am-form-grid"><label class="am-field am-span-2">Tên sản phẩm<input name="name" required maxlength="120" value="${e(product.name)}" placeholder="Tên sản phẩm"></label><label class="am-field">Danh mục<select name="category">${cats.map(cat=>`<option ${cat===chosenCategory?'selected':''}>${e(cat)}</option>`).join('')}</select></label><label class="am-field">Giá bán (đ)<input name="price" data-money inputmode="numeric" min="1" max="1000000000" required value="${AtinoMoney.format(product.price)}"></label><fieldset class="am-size-picker am-span-2"><legend>Kích cỡ</legend><div class="am-size-options" data-size-options>${choicesHtml(chosenCategory)}</div><label class="am-check am-size-other-toggle"><input type="checkbox" name="customSizesEnabled"> Kích cỡ khác</label><label class="am-field" data-custom-sizes-field hidden>Tên kích cỡ<input name="customSizes" maxlength="1200" disabled placeholder="XS, XXXL, 45"></label></fieldset><label class="am-field am-span-2">Ảnh sản phẩm<input type="file" name="productImage" accept="image/jpeg,image/png,image/webp"></label>${product.image?'<label class="am-check am-span-2"><input type="checkbox" name="removeImage"> Xóa ảnh sản phẩm</label>':''}<label class="am-field am-span-2">Mô tả<textarea name="description" rows="3" maxlength="1000">${e(product.description)}</textarea></label><details class="am-span-2"><summary>Thông tin trên tem</summary><div class="am-form-grid">${labelFields}</div></details><label class="am-check am-span-2"><input type="checkbox" name="active" ${onCreated?'disabled':''} ${product.active!==false?'checked':''}> Đang kinh doanh</label></div>`,onOpen:form=>{
   const host=form.querySelector('[data-size-options]'),custom=form.elements.customSizes,customToggle=form.elements.customSizesEnabled;
   host.addEventListener('change',()=>{selectedSizes=new Set(selectedValues(form));categorySelections.set(currentCategory,new Set(selectedSizes));});
   form.elements.category.addEventListener('change',()=>{
@@ -651,7 +655,7 @@ function editProduct(code,onCreated){
   const sizes=unique([...selected,...custom.map(size=>known.get(size.toLocaleLowerCase('vi'))||size)]);
   if(!sizes.length)throw new Error('Chọn ít nhất một kích cỡ.');
   if(sizes.length>30)throw new Error('Chỉ chọn tối đa 30 kích cỡ.');
-  const fields={code,name:form.elements.name.value,category:form.elements.category.value,price:Number(form.elements.price.value),sizes,description:form.elements.description.value,active:form.elements.active.checked};
+  const fields={code,name:form.elements.name.value,category:form.elements.category.value,price:AtinoMoney.read(form.elements.price),sizes,description:form.elements.description.value,active:form.elements.active.checked};
   fields.labelInfo=Object.fromEntries(window.AtinoLabels.fields.map(([key])=>[key,form.elements['tag-'+key].value.trim()]));
   const image=form.elements.productImage.files[0];
   if(image) fields.image=await window.AtinoImages.thumbnail(image,640);
@@ -742,7 +746,7 @@ M.register('inventory',{
   ${overviewCard('Kích cỡ cần bổ sung',number.format(figures.lowSizes.length),'alert','low-sizes','Xem các kích cỡ còn ít hoặc đã hết')}
   ${overviewCard('Sản phẩm hết hàng',number.format(figures.empty.length),'inventory','sold-out','Xem sản phẩm đã hết mọi kích cỡ')}</div>
   <section class="am-panel"><div class="am-panel-head"><div><h2>Danh sách sản phẩm</h2><p id="am-inventory-count">${number.format(filteredProducts().length)} sản phẩm</p></div>
-  <button type="button" class="am-btn secondary" id="am-stock-export">${M.icon('download')} Xuất danh sách sản phẩm</button></div>
+  <button type="button" class="am-btn secondary" id="am-stock-export">Xuất Excel</button></div>
   <div class="am-toolbar am-filterbar"><label class="am-search">${M.icon('search')}<input type="search" id="am-stock-search" value="${e(inventoryFilters.search)}" placeholder="Tìm mã hoặc tên sản phẩm…" aria-label="Tìm sản phẩm"></label>
   <select id="am-stock-category" aria-label="Danh mục sản phẩm"><option value="">Tất cả danh mục</option>${cats.map(cat=>`<option value="${e(cat)}" ${inventoryFilters.category===cat?'selected':''}>${e(cat)}</option>`).join('')}</select></div>
   <div class="am-table-wrap" id="am-inventory-results">${inventoryRows()}</div></section>`;
@@ -785,6 +789,7 @@ function showSupplier(id){
 }
 function showSupplierReceipt(id){
  const doc=M.data.movements.find(row=>row.id===id&&row.type==='receipt');if(!doc)return;
+ if(window.AtinoDocuments&&typeof M.showDocument==='function'){M.showDocument(id);return;}
  const supplier=M.data.suppliers.find(row=>row.id==='NCC001');
  const items=doc.items||[];
  const groups=new Map();
@@ -812,23 +817,19 @@ M.register('suppliers',{
  render(){
   const supplier=M.data.suppliers.find(row=>row.id==='NCC001')||M.data.suppliers[0];
   const docs=supplier?supplierDocuments(supplier.id):[];
-  return `<div class="am-mini-summary"><span>${M.icon('suppliers')}<strong>1</strong> nhà cung cấp</span><span><i class="am-status-dot"></i><strong>Kho tổng</strong> · Công ty TNHH Thời Trang Minh AM</span></div>
-   <section class="am-panel"><div class="am-panel-head"><div><h2>Kho tổng</h2><p>Đầu mối nhập hàng duy nhất của cửa hàng</p></div><div class="am-actions"><button type="button" class="am-btn secondary" id="am-supplier-export">${M.icon('download')} Xuất Excel</button><button type="button" class="am-btn" data-supplier-view="${e(supplier?.id||'NCC001')}">Thông tin kho tổng</button></div></div>
+  return `
+   <section class="am-panel"><div class="am-panel-head"><div><h2>Kho tổng</h2><p>Đầu mối nhập hàng duy nhất của cửa hàng</p></div><div class="am-actions"><button type="button" class="am-btn" data-supplier-view="${e(supplier?.id||'NCC001')}">Thông tin kho tổng</button></div></div>
    <div id="am-supplier-results" class="am-table-wrap">${supplierRows()}</div></section>
    <section class="am-panel"><div class="am-panel-head"><div><h2>Lịch sử phiếu nhập</h2><p>${number.format(docs.length)} phiếu nhập</p></div></div>
    ${docs.length?`<div class="am-table-wrap"><table class="am-table"><thead><tr><th>Mã phiếu nhập</th><th>Ngày</th><th class="am-right">Số lượng</th><th>Nhân viên xác nhận</th><th class="am-right">Tổng giá trị</th><th></th></tr></thead><tbody>${docs.slice().sort((a,b)=>n(b.when)-n(a.when)).map(doc=>`<tr><td class="am-code">${e(doc.id)}</td><td>${M.date(doc.when)}</td><td class="am-right">${number.format(doc.items.reduce((sum,item)=>sum+n(item.qty),0))}</td><td>${e(doc.employeeName||'Chưa ghi nhận')}</td><td class="am-right">${pendingReceipt(doc)?M.badge('Chờ bổ sung giá nhập','amber'):M.money(receiptValue(doc))}</td><td><button class="am-btn secondary small" type="button" data-receipt-detail="${e(doc.id)}">Xem mặt hàng</button></td></tr>`).join('')}</tbody></table></div>`:M.empty('Chưa có phiếu nhập từ kho tổng')}</section>`;
  },
  bind(root){
-  root.querySelector('#am-supplier-export').addEventListener('click',event=>M.downloadTable('Atino-kho-tong-'+M.today(),'Thông tin kho tổng',[
-   ['Mã nhà cung cấp','Nhà cung cấp','Điện thoại','Email','Phiếu nhập','Giá trị nhập'],
-   ...M.data.suppliers.filter(row=>row.id==='NCC001').map(row=>{const docs=supplierDocuments(row.id);return[row.id,row.name,row.phone,row.email,docs.length,docs.filter(doc=>!pendingReceipt(doc)).reduce((sum,doc)=>sum+n(receiptValue(doc)),0)];})
-  ],event.currentTarget));
   root.querySelectorAll('[data-supplier-view]').forEach(button=>button.addEventListener('click',()=>showSupplier(button.dataset.supplierView)));
   root.querySelectorAll('[data-receipt-detail]').forEach(button=>button.addEventListener('click',()=>showSupplierReceipt(button.dataset.receiptDetail)));
   bindSupplierRows(root);
  }
 });
-const auditTime = new Intl.DateTimeFormat('vi-VN', {dateStyle:'short',timeStyle:'short',timeZone:'Asia/Ho_Chi_Minh'});
+const auditTime = new Intl.DateTimeFormat('vi-VN', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZone:'Asia/Ho_Chi_Minh'});
 const auditKinds = {
  'Đăng nhập':['Đăng nhập'],
  'Nhập kho':['Nhập kho','Nhập hàng','Bổ sung giá nhập','Cập nhật giá bán khi nhập hàng'],
@@ -839,10 +840,12 @@ const auditKinds = {
 M.register('audit',{
  title:'Nhật ký thao tác',kicker:'QUẢN LÝ',
  render(){
-  return `<section class="am-panel"><div class="am-toolbar am-filterbar"><label class="am-search">${M.icon('search')}<input type="search" aria-label="Tìm nhật ký" placeholder="Tìm người thực hiện, thao tác hoặc mã chứng từ" data-audit-search></label><label class="am-field">Loại thao tác<select data-audit-kind><option value="">Tất cả thao tác</option>${Object.keys(auditKinds).map(k=>`<option>${e(k)}</option>`).join('')}</select></label><label class="am-field">Ngày thực hiện<input type="date" data-audit-day></label></div><div data-audit-results></div></section>`;
+  const dayInput=vietnameseDateInput('<input type="date" data-audit-day aria-label="Ngày thực hiện">','');
+  return `<section class="am-panel"><div class="am-toolbar am-filterbar"><label class="am-search">${M.icon('search')}<input type="search" aria-label="Tìm nhật ký" placeholder="Tìm người thực hiện, thao tác hoặc mã chứng từ" data-audit-search></label><label class="am-field">Loại thao tác<select data-audit-kind><option value="">Tất cả thao tác</option>${Object.keys(auditKinds).map(k=>`<option>${e(k)}</option>`).join('')}</select></label><label class="am-field">Ngày thực hiện${dayInput}</label></div><div data-audit-results></div></section>`;
  },
  bind(root){
   const query=root.querySelector('[data-audit-search]'),day=root.querySelector('[data-audit-day]');
+  const dayDisplay=root.querySelector('[data-local-date-display]');
   const results=root.querySelector('[data-audit-results]');
   const kind=root.querySelector('[data-audit-kind]');
   const documents=new Set(M.data.movements.map(doc=>doc.id));
@@ -871,7 +874,10 @@ M.register('audit',{
    results.innerHTML=rows.length?`<div class="am-table-wrap"><table class="am-table"><thead><tr><th>Thời điểm</th><th>Người thực hiện</th><th>Thao tác</th><th>Mã tham chiếu</th></tr></thead><tbody>${rows.map(row=>`<tr><td>${e(auditTime.format(row.when))}</td><td><button class="am-text-btn" type="button" data-audit-person="${e(row.employeeId)}">${e(row.employeeName)}</button><small class="am-unit">${e(row.employeeId)}</small></td><td>${e(row.action)}${row.detail?`<small class="am-unit">${e(row.detail)}</small>`:''}</td><td>${(documents.has(row.reference)||returnIds.has(row.reference))?`<button class="am-text-btn" type="button" data-audit-document="${e(row.reference)}">${e(row.reference)}</button>`:e(row.reference)}</td></tr>`).join('')}</tbody></table></div>`:M.empty('Chưa có thao tác phù hợp');
   };
   query.addEventListener('input',()=>{selectedRow=null;draw();});
-  day.addEventListener('change',draw);
+  day.addEventListener('change',()=>{
+   dayDisplay.textContent=day.value?day.value.split('-').reverse().join('/'):'dd/mm/yyyy';
+   draw();
+  });
   kind.addEventListener('change',draw);
   draw();
  }

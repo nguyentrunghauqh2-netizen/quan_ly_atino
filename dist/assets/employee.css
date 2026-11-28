@@ -139,3 +139,6 @@ body.employee-active :is(#receipt-review,#payment-dialog) :is(.primary,.secondar
 @media(max-width:420px){#employee-app .ae-history-toolbar label:not(.ae-query){width:100%}}
 
 .ae-summary button{display:block;width:100%;text-align:left;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer}.ae-summary button span{font-size:.875rem;color:var(--ae-muted)}.ae-summary button:hover strong,.ae-summary button:focus-visible strong{color:#4338ca}.ae-product-group{border-bottom:1px solid var(--ae-border);padding:.65rem 0}.ae-product-group summary{cursor:pointer}.ae-product-group summary span{margin-left:1rem}.ae-product-group[open] summary{margin-bottom:.6rem}
+
+#employee-app .ae-dialog.ae-dialog-wide{width:min(96vw,1180px)}
+#employee-app .ae-receipt-paper{max-width:340px;margin:0 auto;border:1px dashed #cfd6e4;border-radius:8px;background:#fff}

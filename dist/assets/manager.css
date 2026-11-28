@@ -234,7 +234,7 @@ body.manager-active>header,body.manager-active>main,body.manager-active>footer,b
 #manager-app .am-text-btn strong{display:block;font-size:.875rem;font-weight:550;color:inherit}
 #manager-app .am-text-btn small{display:block;font-size:.8125rem;color:#9aa7bd;margin-top:4px}
 #manager-app .am-dialog{width:min(94vw,600px);max-width:94vw;max-height:90vh;margin:auto;border:1px solid #e3e9f3;border-radius:12px;padding:0;box-shadow:0 24px 100px #16284936;background:#fff;color:var(--am-text);overflow:auto}
-#manager-app .am-dialog-wide{width:min(94vw,820px)}
+#manager-app .am-dialog-wide{width:min(96vw,1180px)}
 #manager-app .am-dialog::backdrop{background:#13203988;backdrop-filter:blur(3px)}
 #manager-app .am-dialog form{margin:0}
 #manager-app .am-dialog-head{display:flex;align-items:center;justify-content:space-between;gap:20px;border-bottom:1px solid #e9edf5;padding:20px 24px;background:#fff;position:sticky;top:0;z-index:2}
@@ -492,3 +492,130 @@ body.manager-active>header,body.manager-active>main,body.manager-active>footer,b
 #manager-app .am-size-picker [data-custom-sizes-field]{margin-top:12px}
 #manager-app .am-flow-in,#manager-app .am-flow-out{display:block;white-space:normal;font-size:.875rem;line-height:1.6}
 #manager-app .am-flow-in{color:#28775e}#manager-app .am-flow-out{color:#805b1b}
+
+#manager-app .op-receipt-paper{max-width:340px;margin:0 auto 16px;border:1px dashed #cfd6e4;border-radius:8px;background:#fff}
+
+#manager-app .op-invoice-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 6px 20px;
+  margin: 12px 0;
+}
+#manager-app .op-invoice-meta .am-kv {
+  display: block;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+#manager-app .op-invoice-meta .am-muted { color: inherit; font-weight: 600; }
+#manager-app .op-invoice-meta .am-muted::after { content: ': '; }
+#manager-app .op-invoice-meta strong { font-size: inherit; font-weight: 400; }
+
+#manager-app [data-screen] .am-panel-head { padding: 12px 16px; }
+#manager-app [data-screen] .am-overview-card { padding: 14px 16px; min-height: auto; }
+#manager-app [data-screen] :is(.am-attention,.am-top-product) { padding-block: 8px; }
+#manager-app [data-screen] .am-table :is(th,td) { padding: 8px 12px; font-size: 14px; line-height: 1.45; }
+#manager-app .am-dialog[data-screen] :is(.am-dialog-head,.am-dialog-foot) { padding: 10px 16px; }
+#manager-app .am-dialog[data-screen] .am-dialog-body { padding: 14px 16px; }
+#manager-app .am-dialog[data-screen] :is(dl.am-kv,.am-form-grid.am-detail) {
+  display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,240px),1fr));
+  padding: 0; margin: 8px 0 12px; gap: 6px 16px; background: transparent; border: 0;
+}
+#manager-app .am-dialog[data-screen] :is(dl.am-kv > div,.am-detail > .am-kv) {
+  display: block; padding: 0; margin: 0; font-size: 14px; line-height: 1.5;
+}
+#manager-app .am-dialog[data-screen] :is(.am-kv dt,.am-detail .am-muted) { display: inline; font-weight: 600; color: inherit; }
+#manager-app .am-dialog[data-screen] :is(.am-kv dt,.am-detail .am-muted)::after { content: ': '; }
+#manager-app .am-dialog[data-screen] :is(.am-kv dd,.am-detail .am-kv strong) { display: inline; font-size: 14px; font-weight: 400; margin: 0; }
+
+#manager-app .am-dialog .op-exchange-totals { margin-block: 10px; }
+#manager-app .am-dialog .op-exchange-totals > .am-kv {
+  display: block; margin: 0; padding: 2px 0; border: 0; font-size: 14px; line-height: 1.5;
+}
+#manager-app .am-dialog .op-exchange-totals > .am-kv > span { font-size: inherit; font-weight: 600; }
+#manager-app .am-dialog .op-exchange-totals > .am-kv > span::after { content: ': '; }
+#manager-app .am-dialog .op-exchange-totals > .am-kv > strong { font-size: inherit; font-weight: 400; }
+#manager-app .am-dialog .op-exchange-totals > .op-grand-total > strong { font-weight: 600; }
+
+#manager-app .am-dialog[data-screen="inventory"] .am-detail-stats {
+  display: flex; flex-wrap: wrap; gap: 6px 20px; padding: 0; margin: 10px 0; background: transparent; border: 0;
+}
+#manager-app .am-dialog[data-screen="inventory"] .am-detail-stats > div {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px; padding: 0;
+}
+#manager-app .am-dialog[data-screen="inventory"] .am-detail-stats > div > span:first-child { font-size: 14px; font-weight: 600; }
+#manager-app .am-dialog[data-screen="inventory"] .am-detail-stats > div > span:first-child::after { content: ':'; }
+#manager-app .am-dialog[data-screen="inventory"] .am-detail-stats strong { font-size: 14px; font-weight: 400; }
+#manager-app .am-dialog:is([data-screen="receipts"],[data-screen="dispatches"]) .dv-meta { gap: 6px 16px; font-size: 14px; }
+#manager-app .am-dialog:is([data-screen="receipts"],[data-screen="dispatches"]) .dv-table :is(th,td) { padding: 6px 8px; font-size: 14px; }
+
+/* Biểu mẫu lập phiếu nhập và xuất, kể cả khi mở từ Tổng quan. */
+#manager-app .am-dialog:has([data-line-editor="stock"], .am-size-picker, [data-new-model]) {
+  width: min(980px, calc(100% - 24px));
+  --stock-field-height: 34px;
+}
+#manager-app .am-dialog:has([data-line-editor="stock"], .am-size-picker, [data-new-model]) :is(.am-dialog-head,.am-dialog-body,.am-dialog-foot) { padding: 10px 16px; }
+#manager-app .am-dialog:has([data-line-editor="stock"], .am-size-picker, [data-new-model]) :is(.am-form-grid,.am-stack) { gap: 8px; }
+#manager-app .am-dialog:has([data-line-editor="stock"], .am-size-picker, [data-new-model]) :is(.am-field,.am-muted,.op-order-total,.am-btn,.op-review .am-kv) { font-size: 14px; line-height: 1.4; }
+#manager-app .am-dialog:has([data-line-editor="stock"], .am-size-picker, [data-new-model]) :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea,.am-btn) {
+  font-size: 14px; padding: 5px 9px; min-height: var(--stock-field-height); height: auto;
+}
+#manager-app .am-dialog:has([data-line-editor="stock"], .am-size-picker, [data-new-model]) textarea[name="note"] { height: 40px; resize: vertical; }
+#manager-app [data-line-editor="stock"] .am-panel-head { padding: 4px 0; }
+#manager-app [data-line-editor="stock"] h3 { margin: 0; font-size: 16px; }
+#manager-app [data-line-editor="stock"] .op-product-search { margin-bottom: 4px; }
+#manager-app [data-line-editor="stock"] .am-table :is(td,th) { padding: 5px 8px; font-size: 14px; }
+#manager-app [data-line-editor="stock"] .op-editor-footer { margin: 4px 0; gap: 8px; }
+#manager-app .am-dialog [data-op-stock-review] { padding: 8px 0; border: 0; background: transparent; }
+#manager-app .am-dialog [data-op-stock-review] .am-kv { justify-content: flex-start; gap: 6px; padding: 2px 0; }
+
+#manager-app .am-dialog:has(.am-size-picker) { width: min(760px, calc(100% - 24px)); }
+#manager-app .am-dialog .am-size-picker { padding: 8px 10px; }
+#manager-app .am-dialog .am-size-options { gap: 6px; }
+#manager-app .am-dialog .am-size-choice { min-height: 32px; padding: 4px 8px; gap: 5px; }
+#manager-app .am-dialog .am-size-other-toggle { margin-top: 6px; }
+#manager-app .am-dialog:has(.am-size-picker) .am-field { gap: 3px; }
+#manager-app .am-dialog:has(.am-size-picker) textarea { height: 54px; resize: vertical; }
+
+#manager-app .op-date-picker { display: grid; align-items: center; position: relative; }
+#manager-app .op-date-picker > * { grid-area: 1 / 1; }
+#manager-app .op-date-picker > span { z-index: 1; pointer-events: none; margin-inline: 12px 32px; font-variant-numeric: tabular-nums; }
+#manager-app .op-date-picker input { width: 100%; color: transparent; }
+#manager-app .op-date-picker input::-webkit-datetime-edit { opacity: 0; }
+#manager-app .op-date-picker:has(input:focus-visible) > span { visibility: hidden; }
+#manager-app .op-date-picker input:focus-visible { color: inherit; }
+#manager-app .op-date-picker input:focus-visible::-webkit-datetime-edit { opacity: 1; }
+#manager-app .am-local-date:has(input:focus-visible) > span { visibility: visible; }
+#manager-app .am-local-date input:focus-visible { color: transparent; }
+#manager-app .am-local-date input:focus-visible::-webkit-datetime-edit { opacity: 0; }
+#manager-app .am-period-input .am-local-date > span { margin-left: 0; color: #4e5b74; font-size: .875rem; }
+#manager-app .am-period-input:has(.am-local-date input:focus-visible) { outline: 2px solid #8394b6; outline-offset: 2px; }
+
+@media screen {
+  #manager-app .am-workspace, #manager-app .am-dialog { font-size: 14px; line-height: 1.45; }
+  #manager-app .am-page-heading h1 { font-size: 22px; }
+  #manager-app [data-screen] :is(.am-panel-head h2,.am-dialog-head h2) { font-size: 17px; line-height: 1.35; }
+  #manager-app .am-dialog .am-dialog-body h3 { font-size: 15px; margin-block: 10px 6px; }
+  #manager-app .am-dialog .am-form-grid { gap: 9px 16px; }
+  #manager-app .am-dialog .am-form-grid > .am-field { font-size: 13px; line-height: 1.4; gap: 3px; }
+  #manager-app [data-screen] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]),select,textarea) {
+    box-sizing: border-box; min-height: 34px; padding-block: 5px; font-size: 14px; line-height: 1.4;
+  }
+  #manager-app [data-screen] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]),select) { height: 34px; }
+  #manager-app [data-screen] .am-btn { font-size: 13px; min-height: 34px; padding: 5px 12px; }
+  #manager-app .am-dialog .am-dialog-head .am-icon-btn { width: 32px; height: 32px; min-height: 32px; }
+  #manager-app [data-screen] .am-overview-card-foot { font-size: 13px; }
+  #manager-app .am-sidebar .am-navigation button { font-size: 14px; }
+}
+
+@media screen {
+  #manager-app [data-screen="audit"] .am-table { table-layout: auto; min-width: 640px; }
+  #manager-app [data-screen="audit"] .am-table :is(th,td):is(:first-child,:nth-child(2),:last-child),
+  #manager-app [data-screen="audit"] [data-audit-person] { white-space: nowrap; width: auto; }
+  #manager-app [data-screen="audit"] .am-table td:nth-child(3) { overflow-wrap: anywhere; }
+  #manager-app .am-dialog[data-screen] :is(.am-text-btn,.am-search,.op-order-total,.am-overview-card,dd,.amp-check,.op-payment-check,.sum.big) { font-size: 14px; line-height: 1.45; }
+  #manager-app .am-dialog[data-screen] :is(.amp-check,.op-payment-check) input { font-size: inherit; }
+}

@@ -15,7 +15,7 @@ Sử dụng skill này khi nối giao diện HTML/CSS/JS trong `dist/` với Bac
 ## 1. Nguyên tắc tích hợp
 
 - **Giữ nguyên HTML/CSS/JS thuần** trong `dist/` (bao gồm giao diện tài khoản `account-ui.js`, tem nhãn `product-labels.js`, xuất Excel `workbook.js` / `report-export.js`).
-- Không làm sống lại các tính năng đã bỏ (`vouchers`, ưu đãi sinh nhật, tách 2 kho, `held`, đổi hàng lỗi).
+- Khi nối POS, hiển thị khoản giảm sinh nhật và thực thu do API báo giá trả về. Yêu cầu báo giá lại nếu tổng tiền thay đổi khi lưu. Giữ tồn kho chung theo kích cỡ và điều kiện chỉ đổi hàng nguyên vẹn.
 - Trong `dist/index.html`, hàm `api(path, options)` đã có sẵn khung `fetch('/api/' + path, ...)`. Agent cần:
   1. Tắt/gỡ bỏ mock `window.AtinoDemo` dùng `IndexedDB` khi chạy bản kết nối backend.
   2. Nối toàn bộ API của `dist/assets/erp.js` và `dist/assets/account-store.js` sang gọi Flask endpoints:

@@ -163,7 +163,7 @@
   function snap(shop,user) {return clone({user,products:shop.products.map(p=>({...p,active:p.active!==false})),balances:balances(shop),movements:shop.movements,staff:shop.staff.map(publicStaff),customers:shop.customers.map(c=>customerView(shop,c)),suppliers:shop.suppliers,returns:shop.returns,stockNotes:shop.stockNotes,shifts:shop.shifts,settings:shop.settings,audit:shop.audit});}
   const snapshot=()=>access(true,(shop,user)=>snap(shop,user));
   function retailProduct(p) {return {code:p.code,name:p.name,category:p.category,price:p.price,image:p.image||'',description:p.description||'',active:p.active!==false,sizes:sizesFor(p),labelInfo:p.labelInfo,unit:unitFor(p)};}
-  const checkoutData=()=>access(true,(shop,user)=>({user,sellers:shop.staff.filter(person=>person.active!==false).map(({code,name})=>({code,name})),products:shop.products.filter(p=>p.active!==false).map(retailProduct),balances:balances(shop),customers:shop.customers.map(c=>({id:c.id,name:c.name,phone:c.phone})),suppliers:shop.suppliers.filter(s=>s.active!==false).map(s=>({id:s.id,name:s.name})),shifts:shop.shifts.filter(shift=>shift.employeeId===user.code).map(({id,date,start,end,status})=>({id,date,start,end,status}))}),['manager','employee']);
+  const checkoutData=()=>access(true,(shop,user)=>({user,sellers:shop.staff.filter(person=>person.active!==false).map(({code,name})=>({code,name})),products:shop.products.filter(p=>p.active!==false).map(retailProduct),balances:balances(shop),customers:shop.customers.map(c=>({id:c.id,name:c.name,phone:c.phone})),suppliers:shop.suppliers.filter(s=>s.active!==false).map(s=>({id:s.id,name:s.name})),shifts:shop.shifts.filter(shift=>shift.employeeId===user.code).map(({id,date,start,end,status,fullDay})=>({id,date,start,end,status,fullDay}))}),['manager','employee']);
   function saleStaff(staff, sellerId, cashier) {
     const seller = sellerId ? staff.find(person => person.code === sellerId && person.active !== false) : cashier;
     if (!seller) fail('Nhân viên bán hàng không còn hoạt động. Hãy chọn lại.');
@@ -241,11 +241,21 @@
     if(existing&&existing.name.trim().normalize('NFC').toLocaleLowerCase('vi')!==name.normalize('NFC').toLocaleLowerCase('vi'))fail('Số điện thoại đã có hồ sơ với tên khác. Chọn đúng khách từ gợi ý.');
     return existing||{name,phone:number};
   }
+  function birthdayReduction(movements,customer,gross,day,excludedId) {
+    if (!customer?.id || customer.birthday?.slice(5)!==day.slice(5)) return 0;
+    let used=0;
+    for (const doc of movements) {
+      if (doc.birthdayPricing && doc.type==='sale' && doc.customerId===customer.id &&
+          doc.id!==excludedId && nowDay(doc.when)===day) used+=doc.discount||0;
+    }
+    return Math.min(Math.round(gross/10),Math.max(0,200000-used));
+  }
   function quote(shop,input) {
     const items = itemsFor(shop, input.lines, 'sale').map(item => ({...item, paidTotal: item.lineTotal}));
     const total = int(items.reduce((sum, item) => sum + item.lineTotal, 0), 'Tổng tiền', 0, 1e14);
     const customer = saleCustomer(shop,input);
-    return {items, total, customerId: customer?.id || '', customerName: customer?.name || 'Khách lẻ'};
+    const discount=birthdayReduction(shop.movements,customer,total,nowDay());
+    return {items:discount?allocateDiscount(items,discount):items, gross:total,total:total-discount,discount,birthdayPricing:true, customerId: customer?.id || '', customerName: customer?.name || 'Khách lẻ'};
   }
   const quoteSale=input=>access(false,shop=>clone(quote(shop,input)),['manager','employee']);
   function payment(input,total) {
@@ -278,32 +288,76 @@
     for (const row of data.movements) if (row.exchangeOf === invoiceId) ids.add(row.id);
     return [...ids];
   }
+  const lineSize = item => item.size || 'Chưa phân size';
+  const sameLine = (a,b) => a.code === b.code && lineSize(a) === lineSize(b);
+  const paidShare = (amount,part,total) => Number(BigInt(amount)*BigInt(part)/BigInt(total));
+  function previouslyReturned(shop, invoiceId) {
+    const recorded = new Map();
+    for (const row of shop.returns) {
+      if (row.invoiceId === invoiceId) recorded.set(row.id, row.items || []);
+    }
+    for (const doc of shop.movements) {
+      if (doc.exchangeOf === invoiceId && !recorded.get(doc.id)?.length) {
+        recorded.set(doc.id, doc.returnedItems || []);
+      }
+    }
+    return [...recorded.values()].flat();
+  }
+  function returnedCredit(rows,item,qty) {
+    return rows.every(row => Number.isSafeInteger(row.paidTotal) && row.paidTotal >= 0)
+      ? rows.reduce((sum,row) => sum + row.paidTotal,0)
+      : paidShare(item.paidTotal,qty,item.qty);
+  }
+  function checkEditedReturns(previous,original,items) {
+    const groups = new Map();
+    for (const item of previous) {
+      const key = JSON.stringify([item.code,lineSize(item)]);
+      if (!groups.has(key)) groups.set(key,[]);
+      groups.get(key).push(item);
+    }
+    for (const returned of groups.values()) {
+      const item = returned[0];
+      const updated = items.find(row => sameLine(row,item));
+      const qty = returned.reduce((sum,row) => sum + row.qty,0);
+      const label = item.code + ' · ' + lineSize(item);
+      if (!updated || updated.qty < qty) fail(label + ' đã đổi ' + qty + ' sản phẩm. Số lượng trên hóa đơn phải từ ' + qty + ' trở lên.');
+      const old = original.find(row => sameLine(row,item));
+      const credited = returnedCredit(returned,old || updated,qty);
+      if (paidShare(updated.paidTotal,qty,updated.qty) < credited) {
+        fail(label + ' có giá trị thực trả thấp hơn số tiền đã dùng để đổi hàng.');
+      }
+    }
+  }
   const editSale = input => access(true, (shop,user) => {
     const doc = shop.movements.find(row => row.type === 'sale' && row.id === input.id);
     if (!doc) fail('Không tìm thấy hóa đơn bán.');
     if ((doc.editRevision || 0) !== input.revision) fail('Hóa đơn vừa thay đổi. Mở lại để sửa.');
-    const linked = linkedExchangeIds(shop, doc.id);
-    if (linked.length) fail('Hóa đơn đang khóa. Hãy kiểm tra và xử lý phiếu đổi trả ' + linked.join(', ') + ' trước khi sửa.');
     const stock = stockMap({...shop,movements:shop.movements.filter(row => row !== doc)});
     const oldPrices = new Map(doc.items.map(row => [row.code,row.unitPrice]));
     const items = itemsFor(shop,input.lines,'sale',stock);
     for (const item of items) {
-      item.unitPrice = oldPrices.get(item.code) ?? item.unitPrice;
+      const oldLine = doc.items.find(row => sameLine(row,item));
+      item.unitPrice = oldLine?.unitPrice ?? oldPrices.get(item.code) ?? item.unitPrice;
       item.lineTotal = item.qty * item.unitPrice;
     }
     const gross = int(items.reduce((sum,item)=>sum+item.lineTotal,0),'Tổng tiền',1,1e14);
-    const discount = Math.max(0,grossTotal(doc)-paidTotal(doc));
+    const customer = selectCustomer(shop,input.customerId);
+    const discount = doc.birthdayPricing ? birthdayReduction(shop.movements,customer,gross,nowDay(doc.when),doc.id) : Math.max(0,grossTotal(doc)-paidTotal(doc));
     if (discount > gross) fail('Giá trị mới thấp hơn khoản giảm đã ghi trên hóa đơn cũ.');
     const total = gross - discount;
     if(total !== input.expectedTotal) fail('Giá đã thay đổi. Mở lại hóa đơn để kiểm tra.');
+    const original = salePaidItems(doc);
+    const unchanged = total === paidTotal(doc) && items.length === original.length &&
+      items.every(item => original.some(row => sameLine(row,item) && row.qty === item.qty && row.unitPrice === item.unitPrice));
+    const paidItems = unchanged ? original : allocateDiscount(items,discount);
+    checkEditedReturns(previouslyReturned(shop,doc.id),original,paidItems);
     const pay = payment(input,total);
-    const customer = selectCustomer(shop,input.customerId);
     const seller = saleStaff(shop.staff,input.sellerId,user);
     const describe = d => [d.customerName,d.sellerName||d.employeeName,d.method,d.total,d.cashReceived,d.items.map(i=>i.code+' '+i.size+' × '+i.qty).join(', ')].join(' · ');
     const before = describe(doc);
     delete doc.cashReceived;
     delete doc.change;
-    Object.assign(doc,pay,{items:allocateDiscount(items,discount),gross,total,discount,note:pay.method,
+    Object.assign(doc,pay,{items:paidItems,gross,total,discount,note:pay.method,
       customerId:customer?.id||'',customerName:customer?.name||'Khách lẻ',
       sellerId:seller.sellerId,sellerName:seller.sellerName,editRevision:input.revision+1});
     audit(shop,user,'Sửa hóa đơn bán',doc.id);
@@ -367,6 +421,35 @@
     const fields=employeeFields(input);const path=input.code?'staff/'+input.code:'staff';
     const result=await window.AtinoDemo.api(path,{method:input.code?'PATCH':'POST',body:JSON.stringify({...input,...fields})});return {code:result.code};
   }
+  const workSlots=[
+    {key:'morning',name:'Ca sáng',start:'08:00',end:'14:00'},
+    {key:'afternoon',name:'Ca chiều',start:'14:00',end:'20:00'}
+  ];
+  function matchesSlot(shift,slot){
+    return shift.fullDay || (shift.start<'14:00' ? 'morning':'afternoon')===slot.key;
+  }
+  const updateWorkDay=input=>access(true,(shop,user)=>{
+    const date=optionalDay(input.date,'Ngày làm việc');
+    if(!date)fail('Chọn ngày làm việc.');
+    for(const change of input.changes){
+      const person=shop.staff.find(p=>p.code===change.code);
+      if(!person || (change.working && person.active===false))fail('Kiểm tra lại nhân viên đã chọn.');
+      const matches=s=>s.date===date && s.employeeId===person.code;
+      const slot=workSlots.find(s=>s.key===change.slot);
+      if(!slot)fail('Chọn ca sáng hoặc ca chiều.');
+      for(const row of shop.shifts.filter(s=>matches(s)&&s.fullDay)){
+        Object.assign(row,{fullDay:false,start:workSlots[0].start,end:workSlots[0].end});
+        shop.shifts.push({...row,id:nextId(shop.shifts,'CA',4),start:workSlots[1].start,end:workSlots[1].end});
+      }
+      const inSlot=s=>matches(s)&&matchesSlot(s,slot);
+      if(change.working && !shop.shifts.some(inSlot)){
+        shop.shifts.push({id:nextId(shop.shifts,'CA',4),employeeId:person.code,date,status:'planned',start:slot.start,end:slot.end});
+      }else if(!change.working){
+        shop.shifts=shop.shifts.filter(s=>!inSlot(s));
+      }
+    }
+    audit(shop,user,'Cập nhật ngày làm việc',date);
+  });
   const saveShift=input=>access(true,(shop,user)=>{
     const existing=input.id?shop.shifts.find(s=>s.id===input.id):null;const staff=shop.staff.find(p=>p.code===input.employeeId&&(p.active||existing?.employeeId===p.code));if(!staff)fail('Chọn nhân viên đang hoạt động.');
     const day=optionalDay(input.date,'Ngày làm việc');if(!day)fail('Chọn ngày làm việc.');
@@ -390,12 +473,21 @@
     const items = itemsFor(shop, input.lines, 'receipt');
     return {supplierName: supplier.name, items, total: items.reduce((sum, row) => sum + row.lineTotal, 0)};
   });
+  function dispatchDestination(shop) {
+    const destination=receiptSupplier(shop,'NCC001').name;
+    if (isInternalDestination(destination)) fail('Chọn nơi nhận hàng xuất khác với kho cửa hàng.');
+    return destination;
+  }
+  const previewDispatch = input => access(false, shop => {
+    const destination=dispatchDestination(shop);
+    const items=itemsFor(shop,input.lines,'dispatch');
+    return {destination,items};
+  },['manager','employee']);
   const saveStockDocument=input=>access(true,(shop,user)=>{
     if(!['receipt','dispatch'].includes(input.type))fail('Chọn phiếu nhập hoặc phiếu xuất kho.');
     const old=uniqueRequest(shop,input,'stock',user);if(old)return {id:old.id};
     const supplier=input.type==='receipt'?receiptSupplier(shop,input.supplierId):null;
-    const destination=input.type==='dispatch'?receiptSupplier(shop,'NCC001').name:'',reason='';
-    if (isInternalDestination(destination)) fail('Chọn nơi nhận hàng xuất khác với kho cửa hàng.');
+    const destination=input.type==='dispatch'?dispatchDestination(shop):'',reason='';
     const receipt=input.type==='receipt',employeeReceipt=receipt&&user.role==='employee';
     const items=itemsFor(shop,input.lines,receipt?(employeeReceipt?'receiptRetail':'receipt'):'dispatch');
     if(employeeReceipt){
@@ -428,21 +520,20 @@
     const condition=input.condition;
     if(!Array.isArray(input.items)||!input.items.length||input.items.length>100)fail('Chọn từ 1 đến 100 dòng sản phẩm khách muốn đổi.');
     if(!Array.isArray(invoice.items)||!invoice.items.length)fail('Hóa đơn gốc chưa có chi tiết hàng hợp lệ.');
-    const original=salePaidItems(invoice);
+    const original=salePaidItems(invoice), previousItems=previouslyReturned(shop,invoice.id);
     const stock=stockMap(shop),usedKeys=new Set();
     // Cumulative integer shares keep a split return's total exactly equal to
     // what was paid, including the final dong of a discounted invoice line.
-    const share=(amount,part,total)=>Number(BigInt(amount)*BigInt(part)/BigInt(total));
     let credit=0;
     const returned=input.items.map(line=>{
       const size=clean(line.size,40),key=line.code+'|'+size;if(usedKeys.has(key))fail('Sản phẩm nhận lại bị trùng dòng.');usedKeys.add(key);
       const item=original.find(i=>i.code===line.code&&i.size===size);if(!item)fail('Sản phẩm nhận lại không thuộc hóa đơn gốc.');
-      const previous=shop.returns.filter(r=>r.invoiceId===invoice.id).flatMap(r=>r.items||[]).filter(i=>i.code===line.code&&(i.size||'Chưa phân size')===size);
+      const previous=previousItems.filter(i=>sameLine(i,item));
       const used=previous.reduce((sum,row)=>sum+row.qty,0);
       const qty=int(line.qty,'Số lượng đổi',1,100000);if(qty>item.qty-used)fail(`${item.name} size ${item.size} chỉ còn ${item.qty-used} sản phẩm được đổi.`);
-      const credited=previous.every(row=>Number.isSafeInteger(row.paidTotal)&&row.paidTotal>=0)?previous.reduce((sum,row)=>sum+row.paidTotal,0):share(item.paidTotal,used,item.qty);
+      const credited=returnedCredit(previous,item,used);
       if(credited>item.paidTotal)fail('Giá trị đã đổi vượt số tiền thực trả của dòng hóa đơn. Cần kiểm tra lại chứng từ cũ.');
-      const amount=Math.max(0,share(item.paidTotal,used+qty,item.qty)-credited);credit+=amount;
+      const amount=Math.max(0,paidShare(item.paidTotal,used+qty,item.qty)-credited);credit+=amount;
       stock.get(item.code).get(item.size).total+=qty;
       return {code:item.code,name:item.name,size:item.size,qty,unitPrice:item.unitPrice,paidTotal:amount};
     });
@@ -523,5 +614,5 @@
       stockValue, unknownCostUnits, pendingReceiptCount, uncostedReceiptUnits
     };
   }
-  window.AtinoERP={linkedExchangeIds,editSale,documentPeople,saleStaff,revenueEmployee,snapshot,checkoutData,categories:window.AtinoCatalog?.categories||Object.keys(CATEGORIES),sizesFor,unitFor,references:window.AtinoCatalog?.references||[],today:nowDay,money:n=>fmt.format(n||0),inventory:stockMap,summarizeStock,monthlyUnitsSold,stockThreshold,lowStockSizes,stockAttention,isInternalDestination,metrics,documentPaidTotal:paidTotal,paymentMethod,transactionStatus,salePaidItems,saveProduct,saveStockNote,saveSupplier,saveCustomer,saveEmployee,saveShift,deleteShift,saveSettings,saveStockDocument,previewReceipt,completeReceiptCost,quoteSale,saveSale,quoteExchange,saveExchange,employeeFields};
+  window.AtinoERP={workSlots,matchesSlot,updateWorkDay,birthdayReduction,linkedExchangeIds,editSale,documentPeople,saleStaff,revenueEmployee,snapshot,checkoutData,categories:window.AtinoCatalog?.categories||Object.keys(CATEGORIES),sizesFor,unitFor,references:window.AtinoCatalog?.references||[],today:nowDay,money:n=>fmt.format(n||0),inventory:stockMap,summarizeStock,monthlyUnitsSold,stockThreshold,lowStockSizes,stockAttention,isInternalDestination,metrics,documentPaidTotal:paidTotal,paymentMethod,transactionStatus,salePaidItems,saveProduct,saveStockNote,saveSupplier,saveCustomer,saveEmployee,saveShift,deleteShift,saveSettings,saveStockDocument,previewReceipt,previewDispatch,completeReceiptCost,quoteSale,saveSale,quoteExchange,saveExchange,employeeFields};
 })();

@@ -331,6 +331,7 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
             body.printing-labels .product-label { display:inline-flex; vertical-align:top; margin:0 1mm 2mm 0; border:0.2mm solid #aaa; }
         }
         #invoice-paper { display:none; }
+        .sale-receipt-preview { max-width:340px; margin:.75rem auto 0; border:1px dashed #cbd5e1; border-radius:8px; background:#fff; }
         #invoice-paper .invoice-item-code { display:block; }
         @media print {
             body.printing-invoice > :not(#invoice-paper) { display:none !important; }
@@ -353,9 +354,10 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
         @media (max-width:600px) { .movement:not(.sale-line) { grid-template-columns:1fr 1fr; } #search { min-width:0; } }
     </style>
     <link rel="stylesheet" href="assets/account.css?v=cadbdeb4eea4">
-    <link rel="stylesheet" href="assets/manager.css?v=56b99992d177">
-    <link rel="stylesheet" href="assets/employee.css?v=b67e02d641e5">
-    <link rel="stylesheet" href="assets/search.css?v=cdc4cdf723bd">
+    <link rel="stylesheet" href="assets/manager.css?v=65a3ce48243d">
+    <script src="assets/money-input.js?v=d600e4a81b16"></script>
+    <link rel="stylesheet" href="assets/employee.css?v=9d469496b954">
+    <link rel="stylesheet" href="assets/search.css?v=32f948f115fd">
     <link rel="stylesheet" href="assets/login.css?v=5f0c98f572af">
     <link rel="stylesheet" href="assets/portal.css?v=2433fb3566bd">
 </head>
@@ -472,7 +474,7 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
             <h2 id="price-title" class="heading">Sửa giá bán</h2>
             <form id="price-form" class="space-y-3">
                 <p id="price-product"></p>
-                <label class="block">Giá bán mới (đ)<input class="field" name="price" type="number" min="1" max="1000000000" step="1" required></label>
+                <label class="block">Giá bán mới (đ)<input class="field" name="price" inputmode="numeric" data-money min="1" max="1000000000" required></label>
                 <p id="price-error" role="alert" class="text-red-700"></p>
                 <div class="flex flex-wrap gap-2"><button type="submit" class="primary">Lưu giá bán</button><button id="cancel-price" type="button" class="secondary">Hủy</button></div>
             </form>
@@ -484,7 +486,7 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
                     <label>Mã sản phẩm<input class="field" name="code" readonly aria-describedby="code-hint"></label>
                     <label>Tên sản phẩm<input class="field" name="name" required maxlength="100" placeholder="VD: Áo polo trơn"></label>
                     <label>Danh mục<select class="field" name="category" required></select></label>
-                    <label>Giá bán (đ)<input class="field" name="price" type="number" min="1" max="1000000000" step="1" required></label>
+                    <label>Giá bán (đ)<input class="field" name="price" inputmode="numeric" data-money min="1" max="1000000000" required></label>
                 </div>
                 <label class="block">Link ảnh HTTPS (tùy chọn)<input class="field" name="image" type="url" maxlength="2048"></label>
                 <label class="block">Mô tả<textarea class="field" name="description" rows="3" maxlength="500"></textarea></label>
@@ -612,9 +614,9 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
     <script src="assets/product-labels.js?v=dd9885ef42a0"></script>
     <script src="assets/images.js?v=712c626777ee"></script>
     <script src="assets/account-store.js?v=90f07500504a"></script>
-    <script src="assets/erp.js?v=f747633d3d66"></script>
+    <script src="assets/erp.js?v=d56bf92350af"></script>
     <script src="assets/demo-seed.js?v=5cc084fa71af"></script>
-    <script src="assets/search.js?v=54d003735e9e"></script>
+    <script src="assets/search.js?v=1ce63bc23f0b"></script>
     <script>
 // QRCode for JavaScript by Kazuhiko Arase. See qr-code-license.txt.
 window.createLabelQr = (() => {
@@ -2372,7 +2374,7 @@ function signOutView(message='') {
     overviewVersion++;
     overviewFilter = null;
     staffRows = [];
-    saveAttempt = pendingSale = pendingReceipt = null;
+    saveAttempt = pendingSale = pendingStockReview = null;
     receiptProducts.clear();
     selectedStockSizes.clear();
     activeCategory = '';
@@ -2748,7 +2750,7 @@ function startWorkspace() {
         if (!product) return;
         priceForm.dataset.code = product.code;
         priceForm.dataset.expectedPrice = product.price;
-        priceForm.elements.price.value = product.price;
+        AtinoMoney.set(priceForm.elements.price, product.price);
         byId('price-product').textContent = product.code + ' · ' + product.name;
         byId('price-error').textContent = '';
         priceDialog.showModal();
@@ -2762,7 +2764,7 @@ function startWorkspace() {
         const code = priceForm.dataset.code;
         button.disabled = true;
         try {
-            const data = {price:priceForm.elements.price.valueAsNumber, expectedPrice:Number(priceForm.dataset.expectedPrice)};
+            const data = {price:AtinoMoney.read(priceForm.elements.price), expectedPrice:Number(priceForm.dataset.expectedPrice)};
             const result = await writeApi('products/' + encodeURIComponent(code) + '/price',data,'PATCH');
             state = result.state;
             priceDialog.close();
@@ -2775,7 +2777,8 @@ function startWorkspace() {
                     await refreshStore();
                     const product = state.products.find(item => item.code === code);
                     if (product) {
-                        priceForm.dataset.expectedPrice = priceForm.elements.price.value = product.price;
+                        priceForm.dataset.expectedPrice = product.price;
+                        AtinoMoney.set(priceForm.elements.price, product.price);
                         showDetail(code);
                     }
                 } catch { /* Keep the conflict message in the dialog. */ }
@@ -3036,10 +3039,12 @@ function renderHistory() {
         const summary = legacyTransfer ? 'Lịch sử' : money.format(total);
         return `<details class="rounded-xl border border-slate-200 p-3">
             <summary class="cursor-pointer font-semibold">${title} ${movement.id} · ${movement.when ? date.format(movement.when) : 'Chưa ghi nhận ngày'} · ${summary}</summary>
-            <p class="text-sm mt-2">${escapeHtml(movement.note)}</p>
+            ${['receipt','dispatch'].includes(movement.type) && window.AtinoDocuments
+                ? `<div class="mt-3">${window.AtinoDocuments.stockHtml(movement, {staff: state.staff || [], products: state.products || [], movements: state.movements || [], showCost: currentUser?.role === 'manager'})}</div>`
+                : `<p class="text-sm mt-2">${escapeHtml(movement.note)}</p>
             <p class="text-sm">Người lập: ${escapeHtml(movement.employeeId || '—')} · ${escapeHtml(movement.employeeName || 'Chưa ghi nhận')}</p>
             <ul class="space-y-1 mt-2 text-sm">${movement.items.map(item =>
-                `<li>${escapeHtml(item.code)} · ${escapeHtml(item.name)} · ${escapeHtml(item.size ?? legacySize)} · ${item.qty} cái${legacyTransfer ? '' : ' × ' + money.format(item.unitPrice)}</li>`).join('')}</ul>
+                `<li>${escapeHtml(item.code)} · ${escapeHtml(item.name)} · ${escapeHtml(item.size ?? legacySize)} · ${item.qty} cái${legacyTransfer ? '' : ' × ' + money.format(item.unitPrice)}</li>`).join('')}</ul>`}
             ${movement.type === 'receipt' && movement.items.some(item => item.size && item.size !== legacySize) ? `<button type="button" class="secondary mt-3" data-labels-receipt="${escapeHtml(movement.id)}">In tem QR phiếu nhập</button>` : ''}
         </details>`;
     }).join('') || '<p>Chưa có chứng từ.</p>';
@@ -3076,12 +3081,14 @@ function renderSales() {
         const printed = Number.isFinite(sale.lastPrintedAt) ? date.format(sale.lastPrintedAt) : 'Chưa bấm in từ web';
         return `<details class="rounded-xl border border-slate-200 p-3">
             <summary class="cursor-pointer font-semibold">${escapeHtml(sale.id)} · ${opening} · ${money.format(saleTotal(sale))}</summary>
-            <p class="mt-2 text-sm">Thanh toán: ${escapeHtml(sale.note)}</p>
+            ${window.AtinoDocuments
+                ? `<div class="sale-receipt-preview">${window.AtinoDocuments.saleReceiptHtml(sale, {staff: state.staff || [], customers: state.customers || []})}</div>`
+                : `<p class="mt-2 text-sm">Thanh toán: ${escapeHtml(sale.note)}</p>
             <p class="mt-1 text-sm">Người lập: ${escapeHtml(sale.employeeId || '—')} · ${escapeHtml(sale.employeeName || '')}</p>
-            <p class="mt-1 text-sm">Lần bấm in gần nhất: ${printed}</p>
-            <p class="mt-1 text-sm">Hạn đổi hàng: ${deadline} · <strong data-sold-at="${created ? sale.when : ''}">${returnStatus(sale.when, Date.now())}</strong></p>
             <ul class="space-y-1 mt-3 text-sm">${sale.items.map(item =>
-                `<li>${escapeHtml(item.code)} · ${escapeHtml(item.name)} · Size ${escapeHtml(item.size ?? legacySize)} · ${item.qty} × ${money.format(item.unitPrice)}</li>`).join('')}</ul>
+                `<li>${escapeHtml(item.code)} · ${escapeHtml(item.name)} · Size ${escapeHtml(item.size ?? legacySize)} · ${item.qty} × ${money.format(item.unitPrice)}</li>`).join('')}</ul>`}
+            <p class="mt-2 text-sm">Lần bấm in gần nhất: ${printed}</p>
+            <p class="mt-1 text-sm">Hạn đổi hàng: ${deadline} · <strong data-sold-at="${created ? sale.when : ''}">${returnStatus(sale.when, Date.now())}</strong></p>
             <button type="button" class="secondary mt-3" data-print-invoice="${escapeHtml(sale.id)}">In hóa đơn</button>
         </details>`;
     }).join('') || '<p class="text-sm text-slate-600">Chưa có hóa đơn trong khoảng đã chọn.</p>';
@@ -3179,7 +3186,7 @@ const transferAccount = null;
 let pendingSale = null;
 const receiptReview = byId('receipt-review');
 const receiptProducts = new Map();
-let pendingReceipt = null;
+let pendingStockReview = null;
 productForm.elements.category.replaceChildren(...categories.map(category => new Option(category)));
 
 function selectableProducts() {
@@ -3199,7 +3206,7 @@ function createLine() {
         <label>Sản phẩm<select name="item" class="field" required><option value="">Chọn sản phẩm</option>${options}</select></label>
         <label>Size<select name="size" class="field" required ${sale ? 'disabled' : ''}><option value="">Chọn size</option></select></label>
         <label>Số lượng<input name="qty" class="field" required type="number" inputmode="numeric" min="1" max="${quantityLimit}" step="1"></label>
-        ${movementType === 'receipt' ? '<label>'+ (currentUser?.role==='employee'?'Giá bán':'Giá nhập') +' (đ)<input name="unitPrice" class="field" required type="number" min="1" max="1000000000" step="1"></label>' : '<p class="line-price text-sm pb-2"></p>'}
+        ${movementType === 'receipt' ? '<label>'+ (currentUser?.role==='employee'?'Giá bán':'Giá nhập') +' (đ)<input name="unitPrice" class="field" required inputmode="numeric" data-money min="1" max="1000000000"></label>' : '<p class="line-price text-sm pb-2"></p>'}
         <button type="button" data-remove-line class="secondary">Bỏ dòng</button>`;
     return line;
 }
@@ -3225,7 +3232,7 @@ function startMovement(type) {
     byId('payment-choices').hidden = !sale;
     byId('save-transaction').hidden = sale;
     byId('transaction-title').textContent = movementLabels[type].title;
-    byId('save-transaction').textContent = receipt ? 'Xem lại phiếu nhập' : movementLabels[type].save;
+    byId('save-transaction').textContent = receipt ? 'Xem lại phiếu nhập' : type === 'transfer' ? 'Xem lại phiếu xuất' : movementLabels[type].save;
     byId('add-line').textContent = sale ? 'Thêm sản phẩm' : (receipt ? 'Thêm dòng sản phẩm / size' : 'Thêm mặt hàng xuất');
     const firstLine = addLine();
     if (!receipt && firstLine.querySelector('[name=item]').options.length === 1) {
@@ -3258,7 +3265,7 @@ function fillSizes(line) {
 function fillReceiptPrice(line) {
     const code = line.querySelector('[name=item]').value;
     const product = state.products.find(row => row.code === code);
-    line.querySelector('[name=unitPrice]').value = currentUser?.role === 'employee' ? product?.price ?? '' : '';
+    AtinoMoney.set(line.querySelector('[name=unitPrice]'), currentUser?.role === 'employee' ? product?.price : undefined);
 }
 
 function receiptLines() {
@@ -3266,7 +3273,7 @@ function receiptLines() {
         code:line.querySelector('[name=item]').value,
         size:line.querySelector('[name=size]').value,
         qty:line.querySelector('[name=qty]').valueAsNumber,
-        unitPrice:line.querySelector('[name=unitPrice]').valueAsNumber
+        unitPrice:AtinoMoney.read(line.querySelector('[name=unitPrice]'))
     }));
 }
 
@@ -3288,15 +3295,23 @@ function reviewReceipt(lines, supplier) {
     if (currentUser?.role === 'employee' && !supplierRow) throw new Error('Chọn nhà cung cấp hợp lệ.');
     const receipt = {lines, supplier:supplierRow?.name || supplier, supplierId:supplierRow?.id || '', newProducts};
     const preview = recordReceipt(state, receipt).movements.at(-1);
-    pendingReceipt = receipt;
-    byId('receipt-review-supplier').textContent = 'Nhà cung cấp: ' + receipt.supplier + (receipt.supplierId ? ' · ' + receipt.supplierId : '');
-    byId('receipt-review').querySelector('thead th:last-child').textContent=currentUser?.role==='employee'?'Giá bán':'Giá nhập';
-    byId('receipt-review-items').innerHTML = preview.items.map(item => `<tr>
+    showStockReview({...receipt, type:'receipt'}, preview.items, 'Nhà cung cấp: ' + receipt.supplier + (receipt.supplierId ? ' · ' + receipt.supplierId : ''));
+}
+
+function showStockReview(draft, items, partner) {
+    const receipt = draft.type === 'receipt';
+    pendingStockReview = draft;
+    byId('receipt-review-title').textContent = receipt ? 'Xem lại phiếu nhập' : 'Xem lại phiếu xuất';
+    byId('receipt-review-supplier').textContent = partner;
+    const priceHeader = receiptReview.querySelector('thead th:last-child');
+    priceHeader.hidden = !receipt;
+    priceHeader.textContent = currentUser?.role === 'employee' ? 'Giá bán' : 'Giá nhập';
+    byId('receipt-review-items').innerHTML = items.map(item => `<tr>
         <td>${escapeHtml(item.code)} · ${escapeHtml(item.name)}</td>
-        <td>${escapeHtml(item.size)}</td><td>${item.qty}</td><td>${money.format(item.unitPrice)}</td></tr>`).join('');
-    const count = preview.items.reduce((sum, item) => sum + item.qty, 0);
-    const cost = preview.items.reduce((sum, item) => sum + item.qty * item.unitPrice, 0);
-    byId('receipt-review-total').textContent = currentUser?.role==='employee'?`Tổng số lượng: ${count} sản phẩm`:`Tổng: ${count} sản phẩm · ${money.format(cost)}`;
+        <td>${escapeHtml(item.size)}</td><td>${item.qty}</td>${receipt ? `<td>${money.format(item.unitPrice)}</td>` : ''}</tr>`).join('');
+    const count = items.reduce((sum, item) => sum + item.qty, 0);
+    const cost = receipt && currentUser?.role !== 'employee' ? items.reduce((sum, item) => sum + item.qty * item.unitPrice, 0) : null;
+    byId('receipt-review-total').textContent = `Tổng số lượng: ${count} sản phẩm` + (cost === null ? '' : ' · ' + money.format(cost));
     byId('receipt-review-error').textContent = '';
     receiptReview.showModal();
     byId('receipt-review-title').focus();
@@ -3406,7 +3421,7 @@ productForm.addEventListener('submit', async event => {
     const rawImage = fields.get('image').trim();
     const product = {
         code:fields.get('code').trim().toUpperCase(), name:fields.get('name').trim(),
-        category:fields.get('category'), price:Number(fields.get('price')),
+        category:fields.get('category'), price:AtinoMoney.read(productForm.elements.price),
         image:imageUrl(rawImage), description:fields.get('description').trim()
     };
     try {
@@ -3459,7 +3474,7 @@ transactionForm.addEventListener('submit', async event => {
     }
     const lines = [...transactionLines.children].map(line => ({
         code:line.querySelector('[name=item]').value, size:line.querySelector('[name=size]').value, qty:line.querySelector('[name=qty]').valueAsNumber,
-        unitPrice:line.querySelector('[name=unitPrice]')?.valueAsNumber
+        unitPrice:line.querySelector('[name=unitPrice]') ? AtinoMoney.read(line.querySelector('[name=unitPrice]')) : undefined
     }));
     if (type === 'sale') {
         const method = event.submitter?.dataset.payment;
@@ -3475,11 +3490,8 @@ transactionForm.addEventListener('submit', async event => {
     }
     button.disabled = true;
     try {
-        const saved = await persistDocument(type, lines);
-        byId('search').value = '';
-        if (allowed('stock')) show('stock');
-        else startMovement(type);
-        notify('Đã lưu ' + saved.id + ' và cập nhật số lượng hàng tại cửa hàng.');
+        const preview = await window.AtinoERP.previewDispatch({lines});
+        showStockReview({type, lines}, preview.items, 'Nơi nhận hàng: ' + preview.destination);
     } catch (error) {
         notify(error.message);
         byId('notice').scrollIntoView({block:'center'});
@@ -3489,26 +3501,27 @@ transactionForm.addEventListener('submit', async event => {
 });
 
 byId('edit-receipt').addEventListener('click', () => receiptReview.close());
-receiptReview.addEventListener('close', () => { pendingReceipt = null; });
+receiptReview.addEventListener('close', () => { pendingStockReview = null; });
 receiptReview.addEventListener('cancel', event => {
     if (byId('confirm-receipt').disabled) event.preventDefault();
 });
 
 byId('confirm-receipt').addEventListener('click', async () => {
-    if (!pendingReceipt || byId('confirm-receipt').disabled) return;
-    const draft = pendingReceipt;
+    if (!pendingStockReview || byId('confirm-receipt').disabled) return;
+    const draft = pendingStockReview;
     const confirm = byId('confirm-receipt');
     const edit = byId('edit-receipt');
     confirm.disabled = edit.disabled = true;
     try {
-        const receipt = await persistDocument('receipt', draft.lines, {note:draft.supplier, supplierId:draft.supplierId, newProducts:draft.newProducts});
-        receiptProducts.clear();
+        const receipt = draft.type === 'receipt';
+        const saved = await persistDocument(draft.type, draft.lines, receipt ? {note:draft.supplier, supplierId:draft.supplierId, newProducts:draft.newProducts} : undefined);
+        if (receipt) receiptProducts.clear();
         receiptReview.close();
         byId('search').value = '';
         if (allowed('stock')) show('stock');
-        else startMovement('receipt');
-        notify('Đã lưu ' + receipt.id + ' và cộng số lượng hàng tại cửa hàng.');
-        showLabels(receipt.items);
+        else startMovement(draft.type);
+        notify('Đã lưu ' + saved.id + (receipt ? ' và cộng' : ' và trừ') + ' số lượng hàng tại cửa hàng.');
+        if (receipt) showLabels(saved.items);
     } catch (error) {
         byId('receipt-review-error').textContent = error.message;
     } finally {
@@ -3654,15 +3667,15 @@ labelsDialog.addEventListener('close', () => document.body.classList.remove('pri
 
     </script>
 <script src="assets/vendor/jszip-3.10.1.min.js?v=acc7e41455a8"></script>
-<script src="assets/workbook.js?v=6bd7a611a23a"></script>
-<script src="assets/report-export.js?v=83c5a399e49b"></script>
-<script src="assets/documents.js?v=a0ef56325845"></script>
-    <script src="assets/manager-shell.js?v=c0102ac3b769"></script>
-<script src="assets/manager-people.js?v=297e0d8e2775"></script>
-<script src="assets/manager-operations.js?v=f0765637be55"></script>
-<script src="assets/integration.js?v=9cd7967b3e78"></script>
+<script src="assets/workbook.js?v=c6acd7ff5430"></script>
+<script src="assets/report-export.js?v=056041d32bc3"></script>
+<script src="assets/documents.js?v=6a89698c1d96"></script>
+    <script src="assets/manager-shell.js?v=535a129a362b"></script>
+<script src="assets/manager-people.js?v=829d6dfa3cad"></script>
+<script src="assets/manager-operations.js?v=f78e6e12b807"></script>
+<script src="assets/integration.js?v=64b2a43a5c35"></script>
 <script src="assets/account-ui.js?v=c5b448aee371"></script>
-<script src="assets/employee-shell.js?v=f86214d108a6"></script>
+<script src="assets/employee-shell.js?v=dd24bb760f46"></script>
 <script>startWorkspace();</script>
 <script type="text/plain" id="third-party-licenses">qr-code-license.txt
 QRCode for JavaScript

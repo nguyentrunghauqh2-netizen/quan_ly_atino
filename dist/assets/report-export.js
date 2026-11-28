@@ -148,6 +148,28 @@
     };
   }
 
+  function salesSummarySheet(docs, subtitle) {
+    let sales = 0, exchanges = 0, sold = 0, extra = 0, cash = 0, bank = 0;
+    for (const doc of docs) {
+      const paid = ERP.documentPaidTotal(doc);
+      if (doc.type === 'sale') { sales++; sold += paid; }
+      if (doc.type === 'exchange') { exchanges++; extra += paid; }
+      const method = ERP.paymentMethod(doc);
+      if (method === 'Tiền mặt') cash += paid;
+      if (method === 'Chuyển khoản') bank += paid;
+    }
+    const total = sold + extra;
+    const rows = [['Thực thu từ bán hàng', sold, 'money'], ['Chênh lệch đổi hàng đã thu', extra, 'money']];
+    const payments = [['Tiền mặt', cash, 'money'], ['Chuyển khoản', bank, 'money']];
+    if (total !== cash + bank) payments.push(['Chưa rõ phương thức', total - cash - bank, 'money']);
+    return {name:'Doanh thu',title:'Hóa đơn và doanh thu',subtitle,tabColor:'263959',dashboard:{
+      kpis:[{label:'Doanh thu thực thu',value:total,format:'money',unit:'Theo bộ lọc đã chọn'},
+        {label:'Hóa đơn bán hàng',value:sales,unit:'Số hóa đơn'},
+        {label:'Phiếu đổi hàng',value:exchanges,unit:'Số phiếu'}],
+      sections:[{title:'Giao dịch trong kỳ',rows},{title:'Phương thức thanh toán',rows:payments}]
+    }};
+  }
+
   function exchangeSheet(exchanges, subtitle) {
     const quantity = items => (items || []).reduce((sum, item) => sum + item.qty, 0);
     return {
@@ -241,5 +263,22 @@
     };
   }
 
-  window.AtinoReports = {overviewSheets, transactionsSheet, inventorySheet, inventorySheets, periodLabel, localTime, listSheet};
+  function salarySheet(month, estimates) {
+    const rows = estimates.map(({person, amount, hours, missingHours}) => {
+      const hourly = person.payType === 'hourly';
+      return [person.code, person.name, hourly ? 'Theo giờ' : 'Theo tháng', hourly ? hours : null,
+        hourly ? person.hourlyRate || 0 : null, hourly ? null : person.baseSalary || 0, amount,
+        hourly && missingHours ? 'Chưa tính ngày làm thiếu số giờ' : ''];
+    });
+    const headers = ['Mã nhân viên', 'Họ tên', 'Cách tính', 'Giờ ghi nhận', 'Lương giờ', 'Lương tháng', 'Lương dự kiến', 'Ghi chú'];
+    const sheet = listSheet('Dự toán lương', [headers, ...rows], {
+      subtitle: periodLabel('month', month) + ' · Chỉ tính các ca có giờ đã hoàn thành đối với lương theo giờ',
+      formats: {3:'decimal', 4:'money', 5:'money', 6:'money'}
+    });
+    sheet.totals = [6];
+    sheet.columns[6].highlight = true;
+    return sheet;
+  }
+
+  window.AtinoReports = {overviewSheets, salesSummarySheet, transactionsSheet, exchangeSheet, inventorySheet, inventorySheets, periodLabel, localTime, listSheet, salarySheet};
 })();

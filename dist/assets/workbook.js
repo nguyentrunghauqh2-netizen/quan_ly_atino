@@ -111,12 +111,12 @@
     return '<c' + attributes + ' t="inlineStr"><is><t xml:space="preserve">' + escapeXml(value) + '</t></is></c>';
   }
 
-  const headerRow = 5;
   const printSettings = orientation => `<printOptions horizontalCentered="1"/>
     <pageMargins left="0.3" right="0.3" top="0.4" bottom="0.4" header="0.15" footer="0.15"/>
     <pageSetup paperSize="9" orientation="${orientation}" fitToWidth="1" fitToHeight="0"/>
     <headerFooter><oddFooter>&amp;LATINO&amp;RTrang &amp;P / &amp;N</oddFooter></headerFooter>`;
   const sheetProps = sheet => '<sheetPr>' + (sheet.tabColor ? '<tabColor rgb="FF' + sheet.tabColor + '"/>' : '') + '<pageSetUpPr fitToPage="1"/></sheetPr>';
+  const tableHeaderRow = sheet => 5 + (sheet.metadata?.length || 0);
 
   function dashboardXml(sheet) {
     const widths = [3, 16, 13, 14, 6, 16, 13, 14, 6, 16, 13, 14, 3];
@@ -140,7 +140,7 @@
     const rows = [
       row(1, 11, []),
       row(2, 18, [['B', 'L', 'ATINO', 'brand']]),
-      row(3, 32, [['B', 'L', 'Báo cáo cửa hàng', 'title']]),
+      row(3, 32, [['B', 'L', sheet.title || 'Báo cáo cửa hàng', 'title']]),
       row(4, 21, [['B', 'L', sheet.subtitle, 'subtitle']]),
       row(5, 9, [['B', 'L', null, 'rule']]),
       row(6, 12, []),
@@ -175,6 +175,7 @@
 
   function worksheetXml(sheet, active) {
     if (sheet.dashboard) return dashboardXml(sheet);
+    const headerRow = tableHeaderRow(sheet);
     const {columns, rows} = sheet;
     const last = columnName(columns.length - 1);
     const names = columns.map((column, index) => columnName(index));
@@ -209,13 +210,27 @@
     }).join('');
     const right = chart ? 'L' : last;
     const merge = right === 'A' ? [] : ['A2:' + right + '2', 'A3:' + right + '3'];
+    const metadata=(sheet.metadata||[]).map((groups,i)=>{
+      const r=4+i;
+      let lines = 1;
+      const cells=groups.map((pair,j)=>{
+        const start=Math.floor(j*columns.length/groups.length),end=Math.floor((j+1)*columns.length/groups.length)-1;
+        if(end>start)merge.push(names[start]+r+':'+names[end]+r);
+        const text = pair[0]+': '+(pair[1]??'—');
+        const width = columns.slice(start,end+1).reduce((sum,column)=>sum+column.width,0)-4;
+        const wrapped = text.split('\n').reduce((count,line)=>count+Math.max(1,Math.ceil(line.length/Math.max(1,width))),0);
+        lines = Math.max(lines,wrapped);
+        return cellXml(text,names[start]+r,'plain-text');
+      }).join('');
+      return '<row r="'+r+'" ht="'+Math.min(408,Math.max(24,10+lines*16))+'" customHeight="1">'+cells+'</row>';
+    }).join('');
     const end = Math.max(headerRow + 1, rows.length + headerRow);
-    if (!rows.length && last !== 'A') merge.push('A6:' + last + '6');
+    if (!rows.length && last !== 'A') merge.push('A'+(headerRow+1)+':' + last + (headerRow+1));
     const hiddenFilters = columns.map((column, index) => index >= (sheet.filterColumnCount ?? columns.length)
       ? '<filterColumn colId="' + index + '" hiddenButton="1" showButton="0"/>' : '').join('');
     const filter = sheet.filter !== false && rows.length
       ? '<autoFilter ref="A' + headerRow + ':' + last + end + '">' + hiddenFilters + '</autoFilter>' : '';
-    const footer = sheet.totals?.length && rows.length ? totalRow(sheet, names, end) : '';
+    const footer = sheet.totals?.length && rows.length ? totalRow(sheet, names, end, headerRow) : '';
     const lastRow = Math.max(end + (footer ? 1 : 0), chart ? 20 : 0);
     const pinnedColumn = columns.length > 7;
     const selection = (pinnedColumn ? 'B' : 'A') + (headerRow + 1);
@@ -230,12 +245,12 @@
       <sheetFormatPr defaultRowHeight="21"/>
       <cols>${widths}</cols>
       <sheetData>
-        <row r="1" ht="9" customHeight="1"/>
+        <row r="1" ht="21" customHeight="1">${cellXml("ATINO","A1","brand")}</row>
         <row r="2" ht="32" customHeight="1">${cellXml(sheet.title, 'A2', 'title')}</row>
         <row r="3" ht="21" customHeight="1">${cellXml(sheet.subtitle, 'A3', 'subtitle')}</row>
-        <row r="4" ht="8" customHeight="1"/>
+        ${metadata}<row r="${headerRow-1}" ht="8" customHeight="1"/>
         <row r="${headerRow}" ht="30" customHeight="1">${headers}</row>
-        ${reportRows || '<row r="6">' + cellXml('Chưa có dữ liệu để hiển thị', 'A6', 'empty') + '</row>'}
+        ${reportRows || '<row r="'+(headerRow+1)+'">' + cellXml('Chưa có dữ liệu để hiển thị', 'A'+(headerRow+1), 'empty') + '</row>'}
         ${footer}
       </sheetData>
       ${filter}
@@ -246,7 +261,7 @@
     </worksheet>`);
   }
 
-  function totalRow(sheet, names, end) {
+  function totalRow(sheet, names, end, headerRow) {
     const row = end + 1;
     const cells = sheet.columns.map((column, index) => {
       const address = names[index] + row;
@@ -262,6 +277,7 @@
 
   function revenueChartXml(sheet) {
     const {rows, revenueChart} = sheet;
+    const headerRow = tableHeaderRow(sheet);
     const ref = column => escapeXml("'" + sheet.name.replaceAll("'", "''") + "'!$" + column + '$' + (headerRow + 1) + ':$' + column + '$' + (headerRow + rows.length));
     const dates = revenueChart.period !== 'day';
     const dateFormat = revenueChart.period === 'year' ? '"T"m' : 'dd';
@@ -333,6 +349,7 @@
     const sheetContentTypes = [];
     const printTitles = [];
     sheets.forEach((sheet, index) => {
+      const headerRow = tableHeaderRow(sheet);
       const id = index + 1;
       const path = 'worksheets/sheet' + id + '.xml';
       zip.file('xl/' + path, worksheetXml(sheet, index === 0));

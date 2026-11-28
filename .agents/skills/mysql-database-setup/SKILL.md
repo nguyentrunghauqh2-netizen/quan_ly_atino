@@ -25,6 +25,7 @@ Sử dụng skill này khi tạo CSDL MySQL (`backend/database/schema.sql` và `
    - Bảng `product_sizes` chỉ có **1 cột số lượng duy nhất**: `stock_qty INT NOT NULL DEFAULT 0` kèm `CHECK (stock_qty >= 0)`.
    - Bảng `products` gộp luôn thông tin tem nhãn (`label_*`) và đánh giá hàng hóa (`low_threshold`, `stock_reason`, `stock_note`, `stock_action`).
    - Bảng `sales_invoices` lưu cả `seller_code` (FK -> `staff.code`) và `cashier_code` (FK -> `staff.code`).
+   - Đối chiếu `gross_amount`, `birthday_discount`, `total_amount` và `sales_invoice_items.paid_total`. Tra khoản ưu đãi đã dùng theo mã khách và ngày lập hóa đơn.
    - Bảng `exchanges` chỉ nhận đổi hàng đạt tiêu chuẩn (`condition_ok BOOLEAN NOT NULL DEFAULT TRUE`, `CHECK (condition_ok = TRUE)`).
 
 ## 2. Dữ liệu khởi tạo (`seed.sql`)

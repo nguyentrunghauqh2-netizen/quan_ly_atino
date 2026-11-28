@@ -2,6 +2,7 @@
   'use strict';
   const M = window.AtinoManager;
   const ERP = window.AtinoERP;
+  const Money = window.AtinoMoney;
   const Search = window.AtinoSearch;
   if (!M || !ERP) return;
 
@@ -53,9 +54,21 @@
     if (doc.type === 'dispatch') return M.badge('Xuất kho', 'amber');
     return M.badge(ERP.transactionStatus(doc), doc.type === 'exchange' ? 'blue' : 'green');
   }
+  const figureHints = {
+  "stock": "Xem số lượng theo sản phẩm",
+  "value": "Xem giá trị từng phiếu nhập",
+  "docs": "Xem danh sách phiếu xuất",
+  "profit": "Xem lợi nhuận theo chứng từ",
+  "all": "Xem giao dịch trong bộ lọc",
+  "sale": "Xem hóa đơn bán hàng",
+  "exchange": "Xem các giao dịch đổi hàng",
+  "returns": "Xem chi tiết phiếu đổi",
+  "paid": "Xem tiền thu thêm theo phiếu",
+  "items": "Xem số lượng theo mặt hàng"
+};
   function stat(label, value, note, receiptView) {
     const opening = receiptView ? '<button type="button" class="am-stat am-overview-card" data-figure-view="'+E(receiptView)+'" aria-haspopup="dialog">' : '<div class="am-stat">';
-    return opening + '<div class="am-stat-top"><span>' + E(label) + '</span></div><strong>' + E(value) + '</strong>' + (note ? '<p>' + E(note) + '</p>' : '') + (receiptView ? '</button>' : '</div>');
+    return opening + '<div class="am-stat-top"><span>' + E(label) + '</span></div><strong>' + E(value) + '</strong>' + (note ? '<p>' + E(note) + '</p>' : '') + (receiptView ? '<span class="am-overview-card-foot"><span>'+E(figureHints[receiptView])+'</span>'+M.icon('chevron')+'</span></button>' : '</div>');
   }
   function field(label, body, full) {
     return '<label class="am-field' + (full ? ' am-span-2' : '') + '"><span>' + E(label) + '</span>' + body + '</label>';
@@ -130,16 +143,20 @@
       '<div class="am-table-wrap"><table class="am-table op-line-table"><thead><tr><th>Sản phẩm</th><th>Size</th><th>Số lượng</th><th>' + (kind === 'receipt' ? 'Giá nhập' : kind === 'dispatch' ? 'Số lượng trong cửa hàng' : 'Giá bán') + '</th><th>' + (kind === 'dispatch' ? 'Còn lại sau xuất' : 'Thành tiền') + '</th><th></th></tr></thead><tbody data-line-body></tbody></table></div>' +
       '<div class="op-editor-footer"><button class="am-btn secondary small" type="button" data-line-add>+ Thêm dòng</button><span class="op-order-total" data-line-summary></span></div></section>';
   }
+  function invoiceUnitPrice(invoice,code,size) {
+    const items = invoice?.items || [];
+    const exact = items.find(row => row.code === code && (row.size || 'Chưa phân size') === size);
+    return exact?.unitPrice ?? items.findLast(row => row.code === code)?.unitPrice ?? product(code)?.price;
+  }
   function setupLines(form, id, kind, changed, invoice) {
     const host = form.querySelector('[data-line-editor="' + id + '"]');
     const body = host.querySelector('[data-line-body]');
     let products = activeProducts(kind);
-    const oldPrices=new Map((invoice?.items||[]).map(item=>[item.code,item.unitPrice]));
     let sequence = 0;
     function read() {
       return [...body.querySelectorAll('[data-line-row]')].map(row => {
         const line = { code: row.querySelector('[data-line-code]').value, size: row.querySelector('[data-line-size]').value, qty: num(row.querySelector('[data-line-qty]').value) };
-        if (kind === 'receipt') line.unitPrice = num(row.querySelector('[data-line-price]').value);
+        if (kind === 'receipt') line.unitPrice = Money.read(row.querySelector('[data-line-price]'));
         return line;
       });
     }
@@ -150,8 +167,7 @@
         const code = row.querySelector('[data-line-code]').value;
         const size = row.querySelector('[data-line-size]').value;
         const qty = num(row.querySelector('[data-line-qty]').value);
-        const p = product(code) || {};
-        const price = kind === 'receipt' ? num(row.querySelector('[data-line-price]').value) : num(oldPrices.get(code) ?? p.price);
+        const price = kind === 'receipt' ? num(Money.read(row.querySelector('[data-line-price]'))) : num(invoiceUnitPrice(invoice,code,size));
         row.querySelector('[data-line-stock]').textContent = code ? 'Số lượng trong cửa hàng: ' + available(code, size) + ' ' + unitFor(code) : '';
         if (kind !== 'receipt') row.querySelector('[data-line-price-text]').textContent = code ? (kind === 'dispatch' ? available(code, size) + ' ' + unitFor(code) : M.money(price)) : '—';
         row.querySelector('[data-line-total]').textContent = code ? (kind === 'dispatch' ? qty > available(code, size) ? 'Vượt số lượng trong cửa hàng' : (available(code, size) - qty) + ' ' + unitFor(code) : M.money(qty * price)) : '—';
@@ -166,20 +182,13 @@
       const selectedSize = initial && initial.size ? initial.size : (kind === 'receipt' ? options[0] : options.find(size => available(code, size) > 0) || options[0]);
       const row = document.createElement('tr');
       row.dataset.lineRow = String(++sequence);
-      row.innerHTML = '<td><input class="op-product-search" type="search" data-line-product-search aria-label="Tìm để chọn sản phẩm" placeholder="Tìm áo, balo, dép, mũ…"><select class="op-product-select" required data-line-code aria-label="Sản phẩm">' + option('', products.length ? 'Chọn sản phẩm' : 'Chưa có sản phẩm', code) + products.map(p => option(p.code, p.code + ' · ' + p.name + (p.active === false ? ' · Ngừng bán' : ''), code)).join('') + '</select><span class="am-muted op-line-stock" data-line-stock></span></td>' +
+      row.innerHTML = '<td><select class="op-product-select" required data-line-code aria-label="Sản phẩm">' + option('', products.length ? 'Chọn sản phẩm' : 'Chưa có sản phẩm', code) + products.map(p => option(p.code, p.code + ' · ' + p.name + (p.active === false ? ' · Ngừng bán' : ''), code)).join('') + '</select><span class="am-muted op-line-stock" data-line-stock></span></td>' +
         '<td><select required data-line-size aria-label="Size"' + (code ? '' : ' disabled') + '>' + (options.length ? options.map(size => option(size, size, selectedSize)).join('') : option('', 'Chọn size', '')) + '</select></td>' +
         '<td><input data-line-qty type="number" min="1" step="1" max="100000" required value="' + E(initial && initial.qty || '') + '" aria-label="Số lượng"></td>' +
-        '<td>' + (kind === 'receipt' ? '<input data-line-price class="op-unit-price" type="number" min="1" step="1" required placeholder="Nhập giá" value="' + E(initial && initial.unitPrice || '') + '" aria-label="Giá nhập một đơn vị">' : '<span data-line-price-text></span>') + '</td>' +
+        '<td>' + (kind === 'receipt' ? '<input data-line-price data-money class="op-unit-price" inputmode="numeric" min="1" max="1000000000" required placeholder="Nhập giá" value="' + Money.format(initial?.unitPrice) + '" aria-label="Giá nhập một đơn vị">' : '<span data-line-price-text></span>') + '</td>' +
         '<td class="op-line-total" data-line-total></td><td><button type="button" class="am-btn ghost small" data-line-remove aria-label="Xóa dòng sản phẩm" title="Xóa dòng">×</button></td>';
       body.appendChild(row);
-      Search.attach(row.querySelector('[data-line-product-search]'), {
-        items: () => products.map(p => ({value: p.name, label: p.name, detail: [p.code, p.category, p.active === false ? 'Ngừng bán' : ''].filter(Boolean).join(' · '), searchText: [p.name, p.code, p.category], code: p.code})),
-        onSelect(item) {
-          const select = row.querySelector('[data-line-code]');
-          select.value = item.code;
-          select.dispatchEvent(new Event('change', {bubbles: true}));
-        }
-      });
+      Search.productPicker(row.querySelector('[data-line-code]'));
       update();
       if (changed) changed();
     }
@@ -189,13 +198,12 @@
         const created = product(code);
         const selects = [...body.querySelectorAll('[data-line-code]')];
         for (const select of selects) select.add(new Option(code + ' · ' + created.name, code));
-        const empty = selects.find(select => !select.value && !select.closest('tr').querySelector('[data-line-product-search]').value);
+        const empty = selects.find(select => !select.value);
         if (empty) {
           empty.value = code;
           empty.dispatchEvent(new Event('change', {bubbles: true}));
         } else {
           add({code});
-          body.lastElementChild.querySelector('[data-line-product-search]').value = created.name;
         }
       });
     });
@@ -209,28 +217,19 @@
       if (changed) changed();
     });
     body.addEventListener('change', event => {
-      if (event.target.matches('[data-line-product-search]')) return;
       if (event.target.matches('[data-line-code]')) {
         const row = event.target.closest('[data-line-row]');
         const code = event.target.value;
-        row.querySelector('[data-line-product-search]').value = (product(code) || {}).name || '';
         const options = code ? sizesFor(code) : [];
         const selected = kind === 'receipt' ? options[0] : options.find(size => available(code, size) > 0) || options[0];
         row.querySelector('[data-line-size]').innerHTML = options.length ? options.map(size => option(size, size, selected)).join('') : option('', 'Chọn size', '');
         row.querySelector('[data-line-size]').disabled = !code;
-        if (kind === 'receipt') row.querySelector('[data-line-price]').value = '';
+        if (kind === 'receipt') Money.set(row.querySelector('[data-line-price]'));
       }
       update();
       if (changed) changed();
     });
     body.addEventListener('input', event => {
-      if (event.target.matches('[data-line-product-search]')) {
-        const row = event.target.closest('[data-line-row]');
-        row.querySelector('[data-line-code]').value = '';
-        const size = row.querySelector('[data-line-size]');
-        size.innerHTML = option('', 'Chọn size', ''); size.disabled = true;
-        if (kind === 'receipt') row.querySelector('[data-line-price]').value = '';
-      }
       update(); if (changed) changed();
     });
     if(invoice) invoice.items.forEach(add); else add();
@@ -288,10 +287,10 @@
     if (!doc || !pendingCost(doc)) return M.toast('Phiếu này đã có giá nhập hoặc không còn trong danh sách.');
     M.dialog({title: 'Bổ sung giá nhập · ' + doc.id, wide: true, submitLabel: 'Lưu giá nhập', body:
       '<div class="am-table-wrap"><table class="am-table op-cost-table"><thead><tr><th>Sản phẩm</th><th>Kích cỡ</th><th class="am-right">Số lượng đã nhận</th><th class="am-right">Giá nhập (đ)</th></tr></thead><tbody>' +
-      (doc.items || []).map((row, index) => '<tr><td><strong>' + E(productName(row)) + '</strong><br><span class="am-muted">' + E(row.code) + '</span></td><td>' + E(row.size) + '</td><td class="am-right">' + E(row.qty) + ' ' + E(unitFor(row.code)) + '</td><td><input type="number" class="op-unit-price" data-cost-index="' + index + '" min="1" max="1000000000" step="1" required value="' + (Number.isFinite(row.unitPrice) && row.unitPrice > 0 ? row.unitPrice : '') + '" aria-label="Giá nhập ' + E(productName(row)) + ', ' + E(row.size) + '" placeholder="Nhập giá"></td></tr>').join('') +
+      (doc.items || []).map((row, index) => '<tr><td><strong>' + E(productName(row)) + '</strong><br><span class="am-muted">' + E(row.code) + '</span></td><td>' + E(row.size) + '</td><td class="am-right">' + E(row.qty) + ' ' + E(unitFor(row.code)) + '</td><td><input data-money inputmode="numeric" class="op-unit-price" data-cost-index="' + index + '" min="1" max="1000000000" required value="' + (row.unitPrice > 0 ? Money.format(row.unitPrice) : '') + '" aria-label="Giá nhập ' + E(productName(row)) + ', ' + E(row.size) + '" placeholder="Nhập giá"></td></tr>').join('') +
       '</tbody></table></div>',
       async onSubmit(form) {
-        const lines = (doc.items || []).map((row, index) => ({code: row.code, size: row.size, unitPrice: Number(form.querySelector('[data-cost-index="' + index + '"]').value)}));
+        const lines = (doc.items || []).map((row, index) => ({code: row.code, size: row.size, unitPrice: Money.read(form.querySelector('[data-cost-index="' + index + '"]'))}));
         await ERP.completeReceiptCost({id, lines});
         await M.refresh();
         M.toast('Đã bổ sung giá nhập cho phiếu ' + id + '.');
@@ -318,9 +317,11 @@
       (useNew ? '' : '<div class="am-form-grid am-detail">' + kv('Loại phiếu', stockTypes[doc.type] || doc.type) + kv('Ngày lập', dateText(doc.when)) + documentPeopleHtml(doc) + kv('Tổng số lượng', quantity(doc) + ' sản phẩm') +
       (doc.type === 'receipt' ? kv('Nhà cung cấp', source ? source.name : doc.supplierName || 'Chưa ghi nhận') : kv('Nơi nhận', doc.destination || 'Chưa ghi nhận')) + '</div>') +
       itemDetails + (doc.type === 'receipt' ? pending ? '<div class="op-pending-cost">' + M.badge('Chờ bổ sung giá nhập', 'amber') + '<button type="button" class="am-btn secondary" data-op-complete-cost>Bổ sung giá nhập</button></div>' : '<p class="op-order-total">Giá trị nhập: ' + M.money(doc.gross == null ? rawTotal(doc) : doc.gross) + '</p>' : '') +
+      '<button type="button" class="am-btn secondary" data-doc-excel>Xuất Excel</button>'+
       (doc.note && !useNew ? '<div class="am-note">' + E(doc.note) + '</div>' : '') +
       (doc.type === 'receipt' && doc.items.some(item => item.size && item.size !== 'Chưa phân size') ? '<button type="button" class="am-btn secondary" data-op-labels>In tem QR phiếu nhập</button>' : ''),
       onOpen(form) {
+        form.querySelector('[data-doc-excel]').onclick=e=>exportDocument(doc,e.currentTarget);
         if(!useNew&&['dispatch','receipt'].includes(doc.type)) bindReceiptCards(form, doc.items, doc.id,doc.type==='dispatch');
         form.querySelector('[data-op-labels]')?.addEventListener('click', () => showLabels(doc.items));
         form.querySelector('[data-op-complete-cost]')?.addEventListener('click', () => {dialog.close();completeReceiptCost(id);});
@@ -335,40 +336,41 @@
     const suppliers = (M.data.suppliers || []).filter(row => row.active !== false);
     if (type === 'receipt' && !suppliers.length) { M.toast('Hãy thêm nhà cung cấp trước khi nhập hàng.'); M.go('suppliers'); return; }
     const isReceipt = type === 'receipt';
+    const reviewLabel = isReceipt ? 'Xem lại phiếu nhập' : 'Xem lại phiếu xuất';
     const requestId = uid(type);
     let editor, reviewedPayload;
-    M.dialog({ title: isReceipt ? 'Lập phiếu nhập kho' : 'Lập phiếu xuất kho', wide: true, submitLabel: isReceipt ? 'Xem lại phiếu nhập' : 'Xác nhận xuất kho', body:
+    M.dialog({ title: isReceipt ? 'Lập phiếu nhập kho' : 'Lập phiếu xuất kho', wide: true, submitLabel: reviewLabel, body:
       '<p class="am-muted">Ngày lập: ' + E(dateText(ERP.today())) + ' · Người thực hiện: ' + E(M.data.user.name) + '</p><div class="am-form-grid">' +
       (isReceipt ? field('Nhập hàng từ *', '<select name="supplierId" required>' + suppliers.map((row,index) => option(row.id, row.name, index === 0 ? row.id : '')).join('') + '</select>', true) :
         field('Nơi nhận hàng', '<input name="destination" readonly value="'+E(suppliers[0]?.name||'')+'">')) +
       field('Ghi chú chứng từ', '<textarea name="note" rows="2" maxlength="1000" placeholder="Số chứng từ, nội dung bàn giao hoặc ghi chú khác"></textarea>', true) + '</div>' +
       lineEditorHtml('stock', type, 'Hàng ' + (isReceipt ? 'nhập' : 'xuất')) +
-      (isReceipt ? '<section class="op-review" data-op-receipt-review hidden aria-live="polite"></section>' : ''),
+      '<section class="op-review" data-op-stock-review hidden aria-live="polite"></section>',
       onOpen(form) {
-        
         const clearReview = () => {
           if (!reviewedPayload) return;
           reviewedPayload = undefined;
-          form.querySelector('[data-op-receipt-review]').hidden = true;
-          setSubmit(form, 'Xem lại phiếu nhập');
+          form.querySelector('[data-op-stock-review]').hidden = true;
+          setSubmit(form, reviewLabel);
         };
         editor = setupLines(form, 'stock', type, clearReview);
-        if (isReceipt) form.addEventListener('input', clearReview);
+        form.addEventListener('input', clearReview);
+        form.addEventListener('change', clearReview);
       },
       async onSubmit(form) {
         const data = new FormData(form);
         const payload = { requestId, type, supplierId: data.get('supplierId') || undefined, destination: isReceipt ? undefined : data.get('destination'), note: data.get('note') || '', lines: editor.read() };
         const fingerprint = JSON.stringify(payload);
-        if (isReceipt && reviewedPayload !== fingerprint) {
-          const preview = await ERP.previewReceipt(payload);
-          const review = form.querySelector('[data-op-receipt-review]');
-          review.innerHTML = '<h3>Đối chiếu số lượng trong phiếu</h3>' + kv('Nhà cung cấp', preview.supplierName) +
-            receiptDocumentItems(preview.items) + kv('Tổng số lượng cộng vào kho', quantity(preview)) +
-            kv('Tổng giá nhập', M.money(preview.total));
-          bindReceiptCards(review, preview.items, 'Đang lập');
+        if (reviewedPayload !== fingerprint) {
+          const preview = isReceipt ? await ERP.previewReceipt(payload) : await ERP.previewDispatch(payload);
+          const review = form.querySelector('[data-op-stock-review]');
+          review.innerHTML = '<h3>Đối chiếu số lượng trong phiếu</h3>' +
+            kv(isReceipt ? 'Nhà cung cấp' : 'Nơi nhận hàng', isReceipt ? preview.supplierName : preview.destination) +
+            kv(isReceipt ? 'Tổng số lượng cộng vào kho' : 'Tổng số lượng xuất kho', quantity(preview)) +
+            (isReceipt ? kv('Tổng giá nhập', M.money(preview.total)) : '');
           review.hidden = false;
           reviewedPayload = fingerprint;
-          setSubmit(form, 'Xác nhận nhập kho');
+          setSubmit(form, isReceipt ? 'Xác nhận nhập kho' : 'Xác nhận xuất kho');
           review.scrollIntoView({block:'nearest'});
           return false;
         }
@@ -394,6 +396,10 @@
       if (state.to && (!d || d > state.to)) return false;
       return Search.match(stockSearchText(doc), state.search);
     }));
+  }
+  function stockDateField(label, key, iso) {
+    const display=iso ? iso.split('-').reverse().join('/') : 'dd/mm/yyyy';
+    return field(label, '<span class="op-date-picker"><span aria-hidden="true">'+E(display)+'</span><input type="date" data-op-stock-'+key+' aria-label="'+label+'" value="'+E(iso)+'"></span>');
   }
   function stockTotals(kind) {
     if (stockDatesInvalid(kind)) return '';
@@ -453,18 +459,88 @@
       return '<tr><td><div class="op-doc-title">' + ('<button type="button" class="am-text-btn" data-op-stock-detail="'+E(doc.id)+'">'+E(doc.id)+'</button>') + '<span class="am-muted">' + E(dateText(doc.when)) + '</span></div></td><td>' + E(partner) + '</td><td class="am-right">' + quantity(doc) + ' sản phẩm</td>' + (receipt ? '<td class="am-right">' + detail + '</td>' : '') + '<td>' + E(doc.employeeName || '—') + '</td><td><button type="button" class="am-btn secondary small" data-op-stock-detail="' + E(doc.id) + '">Chi tiết</button></td></tr>';
     }).join('') + '</tbody></table></div>';
   }
+  function documentSheet(doc){
+    const stock=['receipt','dispatch'].includes(doc.type);
+    const exchange=doc.type==='exchange';
+    const context={...M.data,showCost:true};
+    let headers,rows,title,meta,formats,totals;
+    if(stock){
+      const s=window.AtinoDocuments.stockSummary(doc,context);
+      const pairs=Object.fromEntries(s.pairs);
+      const receipt=doc.type==='receipt', pending=receipt&&pendingCost(doc);
+      title=receipt?'Phiếu nhập kho':'Phiếu xuất kho';
+      meta=[[['Ngày lập',pairs['Ngày tạo']],['Người lập',pairs['Người tạo']]],
+        [[receipt?'Nhà cung cấp':'Nơi nhận',receipt?(doc.supplierName||supplier(doc.supplierId)?.name||pairs['Kho xuất']):(doc.destination||'Chưa ghi nhận')]],
+        [[receipt?'Giá trị nhập':'Số lượng xuất',receipt?(pending?'Chờ bổ sung giá nhập':M.money(s.costTotal)):s.qty]]];
+      if(doc.note)meta.push([['Ghi chú',doc.note]]);
+      headers=['Mã hàng','Sản phẩm','Kích cỡ','ĐVT','Số lượng'];
+      rows=s.rows.map(r=>[r.code,r.name,r.size,r.unit,r.qty]);
+      formats={4:'integer'};totals=[4];
+      if(receipt){
+        headers.push('Giá bán','Giá nhập','Thành tiền nhập');
+        rows.forEach((row,i)=>{
+          const item=s.rows[i];
+          row.push(item.retail,pending?null:item.cost,pending?null:item.qty*item.cost);
+        });
+        Object.assign(formats,{5:'money',6:'money',7:'money'});
+        if(!pending)totals.push(7);
+      }
+    }else{
+      title=exchange?'Phiếu đổi hàng':'Hóa đơn bán hàng';
+      meta=[[['Ngày lập',window.AtinoDocuments.dateTime(doc.when)],['Khách hàng',invoiceCustomer(doc)]],
+        [[exchange?'Người lập':'Thu ngân',doc.cashierName||doc.employeeName],exchange?['Hóa đơn gốc',doc.exchangeOf]:['Người bán',doc.sellerName||doc.employeeName]]];
+      if(exchange){
+        meta.push([['Giá trị hàng nhận',M.money(doc.credit)],['Giá trị hàng giao',M.money(doc.replacementTotal??rawTotal(doc))]]);
+        headers=['Loại dòng','Mã hàng','Sản phẩm','Kích cỡ','Số lượng','Giá trị dòng'];
+        const rowsFor=(items,label)=>(items||[]).map(item=>[label,item.code,productName(item),item.size,item.qty,item.paidTotal??item.lineTotal??item.qty*item.unitPrice]);
+        rows=[...rowsFor(doc.returnedItems,'Hàng nhận lại'),...rowsFor(doc.items,'Hàng giao mới')];
+        formats={4:'integer',5:'money'};
+      }else{
+        meta.push([['Tổng trước giảm',M.money(rawTotal(doc))],[doc.birthdayPricing?'Giảm sinh nhật':'Khoản giảm',M.money(rawTotal(doc)-paidTotal(doc))]]);
+        headers=['Mã hàng','Sản phẩm','Kích cỡ','Số lượng','Đơn giá bán','Trước giảm','Thực trả'];
+        rows=paidItems(doc).map(i=>[i.code,productName(i),i.size,i.qty,i.unitPrice,i.lineTotal,i.paidTotal]);
+        formats={3:'integer',4:'money',5:'money',6:'money'};totals=[3,5,6];
+      }
+      meta.push([['Thanh toán',methodText(doc)],[exchange?'Chênh lệch đã thu':'Thực thu',M.money(paidTotal(doc))]]);
+    }
+    const sheet=window.AtinoReports.listSheet(doc.id,[headers,...rows],{formats});
+    sheet.title=title+' · '+doc.id;sheet.metadata=meta;sheet.totals=totals;sheet.filter=false;
+    const productColumn=sheet.columns.find(column=>column.label==='Sản phẩm');
+    productColumn.width=Math.max(28,productColumn.width);
+    return sheet;
+  }
+  function exportDocument(doc,button){return M.downloadWorkbook(doc.id+'.xlsx',[documentSheet(doc)],button);}
   function exportStock(kind, button) {
     if (stockDatesInvalid(kind)) return M.toast('Ngày kết thúc phải bằng hoặc sau ngày bắt đầu.');
     const receipt = kind === 'receipt';
     const name = receipt ? 'atino-nhap-kho-' : 'atino-xuat-kho-';
-    const headers = receipt ? ['Mã phiếu nhập', 'Ngày nhập', 'Mã sản phẩm', 'Sản phẩm', 'Size', 'Số lượng nhập', 'Giá nhập', 'Thành tiền', 'Trạng thái giá nhập', 'Nhà cung cấp', 'Ghi chú', 'Người nhập'] : ['Mã phiếu xuất', 'Ngày xuất', 'Mã sản phẩm', 'Sản phẩm', 'Size', 'Số lượng xuất', 'Nơi nhận', 'Ghi chú', 'Người xuất'];
-    const rows = stockDocs(kind).flatMap(doc => (doc.items || []).map(row => {
-      const common = [doc.id, window.AtinoReports.localTime(doc.when), row.code, productName(row), row.size, row.qty];
-      if (receipt) return [...common, row.unitPrice == null ? '' : row.unitPrice, row.unitPrice == null ? '' : row.lineTotal == null ? num(row.qty) * num(row.unitPrice) : row.lineTotal, pendingCost(doc) ? 'Chờ bổ sung giá nhập' : 'Đã có giá nhập', (supplier(doc.supplierId) || {}).name || doc.supplierName || '', doc.note || '', doc.employeeName || ''];
-      return [...common, doc.destination || '', doc.note || '', doc.employeeName || ''];
-    }));
-    const formats = receipt ? {1:'datetime',6:'money',7:'money'} : {1:'datetime'};
-    M.downloadTable(name + ERP.today(), stockHeading(kind), [headers, ...rows], button, formats);
+    const {listSheet,localTime}=window.AtinoReports;
+    const {from,to,search}=stockStates[kind];
+    const subtitle=(from||to?'Từ '+(from?M.date(from):'đầu kỳ')+' đến '+(to?M.date(to):'hiện tại'):'Toàn bộ thời gian')+(search.trim()?' · Tìm: '+search.trim():'');
+    const summaries=[], details=[];
+    for(const doc of stockDocs(kind)){
+      const pending=receipt&&pendingCost(doc);
+      const party=receipt?doc.supplierName||supplier(doc.supplierId)?.name:doc.destination;
+      const row=[doc.id,localTime(doc.when),party,doc.employeeName,quantity(doc)];
+      if(receipt)row.push(pending?null:doc.gross??rawTotal(doc),pending?'Chờ bổ sung giá nhập':'Đã ghi nhận');
+      summaries.push([...row,doc.note]);
+      for(const item of doc.items||[]){
+        const line=[doc.id,item.code,productName(item),item.size,item.qty];
+        if(receipt)line.push(pending?null:item.unitPrice,pending?null:item.qty*item.unitPrice);
+        details.push(line);
+      }
+    }
+    const summaryHeaders=['Mã phiếu','Ngày giờ lập',receipt?'Nhà cung cấp':'Nơi nhận','Người lập','Số lượng'];
+    const detailHeaders=['Mã phiếu','Mã hàng','Sản phẩm','Kích cỡ','Số lượng'];
+    if(receipt){
+      summaryHeaders.push('Giá trị nhập','Trạng thái giá nhập');
+      detailHeaders.push('Giá nhập','Thành tiền nhập');
+    }
+    const summary=listSheet(stockHeading(kind),[[...summaryHeaders,'Ghi chú'],...summaries],{subtitle,formats:{1:'datetime',4:'integer',...(receipt?{5:'money'}:{})}});
+    const detail=listSheet('Chi tiết theo kích cỡ',[detailHeaders,...details],{subtitle,formats:{4:'integer',5:'money',6:'money'}});
+    summary.totals=receipt&&summaries.some(row=>row[5]!=null)?[4,5]:[4];
+    detail.totals=receipt&&details.some(row=>row[6]!=null)?[4,6]:[4];
+    M.downloadWorkbook(name+ERP.today()+'.xlsx',[summary,detail],button);
   }
   function registerStockPage(kind) {
     const receipt = kind === 'receipt';
@@ -476,8 +552,8 @@
           '<section class="am-panel"><div class="am-panel-head"><div><h2 data-op-stock-heading>' + stockHeading(kind) + '</h2></div><div class="am-actions">' +
           (receipt ? '<button type="button" class="am-btn secondary" data-op-models>Sản phẩm</button>' : '') + '<button type="button" class="am-btn" data-op-stock-new="' + kind + '">+ ' + (receipt ? 'Nhập kho' : 'Xuất kho') + '</button></div></div>' +
           '<div class="am-toolbar am-filterbar"><label class="am-search">' + M.icon('search') + '<input type="search" aria-label="' + stockSearchLabel(kind) + '" data-op-stock-search placeholder="' + (receipt ? 'Tìm phiếu, sản phẩm, nhà cung cấp…' : 'Tìm phiếu, sản phẩm, nơi nhận…') + '" value="' + E(state.search) + '"></label>' +
-          field('Từ ngày', '<input type="date" data-op-stock-from aria-label="Từ ngày" value="' + E(state.from) + '">') + field('Đến ngày', '<input type="date" data-op-stock-to aria-label="Đến ngày" value="' + E(state.to) + '">') +
-          '<button type="button" class="am-btn ghost small" data-op-stock-excel' + (stockDatesInvalid(kind) ? ' disabled' : '') + '>Xuất Excel</button></div><div data-op-stock-table>' + stockTable(kind) + '</div></section>';
+          stockDateField('Từ ngày','from',state.from) + stockDateField('Đến ngày','to',state.to) +
+          '<button type="button" class="am-btn secondary small" data-op-stock-excel' + (stockDatesInvalid(kind) ? ' disabled' : '') + '>Xuất Excel</button></div><div data-op-stock-table>' + stockTable(kind) + '</div></section>';
       },
       bind(root) {
         const redraw = () => {
@@ -487,7 +563,9 @@
         };
         for (const [selector, prop, eventName] of [['search', 'search', 'input'], ['from', 'from', 'change'], ['to', 'to', 'change']]) {
           const input = root.querySelector('[data-op-stock-' + selector + ']');
-          if (input) input.addEventListener(eventName, event => { state[prop] = event.target.value; redraw(); });
+          if (input) input.addEventListener(eventName, event => { state[prop] = event.target.value;
+            if (input.type==='date') input.previousElementSibling.textContent=input.value ? input.value.split('-').reverse().join('/') : 'dd/mm/yyyy';
+            redraw(); });
         }
         Search.attach(root.querySelector('[data-op-stock-search]'), {items: () => stockDocs(kind).map(doc => ({
           value: doc.id, label: doc.id,
@@ -517,13 +595,14 @@
   function paymentHtml(total, method) {
     if (total <= 0) return '<div class="op-payment"><strong>Không thu thêm</strong></div>';
     if (method === 'Chuyển khoản') return '<div class="op-payment"><label class="op-payment-check"><input type="checkbox" name="transferConfirmed" required data-payment-input><span>Đã kiểm tra và nhận đủ ' + M.money(total) + '.</span></label></div>';
-    return '<div class="op-payment"><div class="am-form-grid">' + field('Tiền khách đưa *', '<input type="number" name="cashReceived" required min="' + num(total) + '" step="1" placeholder="Nhập số tiền đã nhận" data-payment-input>') + '<div class="am-field"><span>Tiền trả lại khách</span><strong class="op-order-total" data-cash-change>—</strong></div></div></div>';
+    return '<div class="op-payment"><div class="am-form-grid">' + field('Tiền khách đưa *', '<input data-money inputmode="numeric" name="cashReceived" required min="' + num(total) + '" max="100000000000000" placeholder="Nhập số tiền đã nhận" data-payment-input>') + '<div class="am-field"><span>Tiền trả lại khách</span><strong class="op-order-total" data-cash-change>—</strong></div></div></div>';
   }
   function bindPayment(form, total) {
     const input = form.querySelector('[name="cashReceived"]');
     if (input) input.addEventListener('input', () => {
       const change = form.querySelector('[data-cash-change]');
-      change.textContent = !input.value ? '—' : num(input.value) < total ? 'Còn thiếu ' + M.money(total - num(input.value)) : M.money(num(input.value) - total);
+      const received = Money.read(input);
+      change.textContent = !Number.isFinite(received) ? '—' : received < total ? 'Còn thiếu ' + M.money(total - received) : M.money(received - total);
     });
   }
   function readPayment(form, total, method) {
@@ -533,8 +612,8 @@
       if (!confirmed) throw new Error('Hãy kiểm tra tài khoản và xác nhận đã nhận đủ tiền chuyển khoản.');
       return { transferConfirmed: true };
     }
-    const received = num(form.querySelector('[name="cashReceived"]')?.value);
-    if (received < total) throw new Error('Tiền khách đưa chưa đủ để thanh toán.');
+    const received = Money.read(form.querySelector('[name="cashReceived"]'));
+    if (!Number.isFinite(received) || received < total) throw new Error('Tiền khách đưa chưa đủ để thanh toán.');
     return { cashReceived: received, transferConfirmed: false };
   }
   function saleInputs(form, editor) {
@@ -569,7 +648,7 @@
         window.AtinoCheckout.bindBuyer(form,()=>customers);
         editor = setupLines(form, 'sale', 'sale', invalidate);
         form.addEventListener('change', event => {
-          if (event.target.matches('[data-payment-input], [data-line-product-search]')) return;
+          if (event.target.matches('[data-payment-input]')) return;
           invalidate();
         });
       },
@@ -582,7 +661,7 @@
           quotedInput = fingerprint;
           const review = form.querySelector('[data-sale-review]');
           review.hidden = false;
-          review.innerHTML = '<h3>Kiểm tra trước khi thanh toán</h3>' + documentItems(result.items, false) + '<div class="am-kv op-grand-total"><span>Khách cần thanh toán</span><strong>' + M.money(result.total) + '</strong></div>' +
+          review.innerHTML = '<h3>Kiểm tra trước khi thanh toán</h3>' + documentItems(result.items, false) + (result.discount ? '<p>Giảm sinh nhật: '+M.money(result.discount)+'</p>' : '') + '<div class="am-kv op-grand-total"><span>Khách cần thanh toán</span><strong>' + M.money(result.total) + '</strong></div>' +
             paymentHtml(num(result.total), input.method);
           bindPayment(form, num(result.total));
           setSubmit(form, 'Xác nhận thanh toán');
@@ -610,7 +689,7 @@
       (doc.type === 'exchange' ? '<div class="am-kv"><span>Giá trị hàng mới</span><span>' + M.money(doc.replacementTotal == null ? rawTotal(doc) : doc.replacementTotal) + '</span></div><div class="am-kv"><span>Giá trị hàng đổi</span><span>' + M.money(doc.credit) + '</span></div>' : '') +
       '<div class="am-kv total"><span>' + (doc.type === 'exchange' ? 'Chênh lệch đã thu' : 'Đã thanh toán') + '</span><span>' + M.money(paidTotal(doc)) + '</span></div><div class="am-kv"><span>Phương thức</span><span>' + E(methodText(doc)) + '</span></div><p class="note">Phiếu bán hàng · Không phải hóa đơn GTGT.<br>Đổi hàng: 30 ngày · Ngang giá hoặc cao hơn · Không hoàn tiền.</p><button type="button" onclick="window.print()">In phiếu</button></body></html>';
     popup.document.open();
-    popup.document.write(content);
+    popup.document.write(content.replace('</head>','<style>h1{color:#36538a;font-size:18px}h2{color:#203657;border-bottom:1px solid #a4b5d0;padding-bottom:10px}th{background:#233655;color:white}tbody tr:nth-child(even),.total{background:#edf3fc}th,td{border:1px solid #d6dfed}.am-kv{padding:3px 8px;margin:4px 0}.total{padding:10px}</style></head>'));
     popup.document.close();
     popup.focus();
     popup.print();
@@ -619,22 +698,26 @@
     let editor;
     const optionList=(rows,idKey,current)=>rows.filter(r=>r.active!==false).map(r=>option(r[idKey],r.name,current)).join('');
     const discount=Math.max(0,rawTotal(doc)-paidTotal(doc));
-    const prices=new Map(doc.items.map(i=>[i.code,i.unitPrice]));
-    const total=()=>editor.read().reduce((sum,i)=>sum+i.qty*(prices.get(i.code)??product(i.code)?.price??0),0)-discount;
+    const total=form=>{
+      const gross=editor.read().reduce((sum,i)=>sum+i.qty*num(invoiceUnitPrice(doc,i.code,i.size)),0);
+      const customer=M.data.customers.find(c=>c.id===form.elements.customerId.value);
+      return gross-(doc.birthdayPricing ? ERP.birthdayReduction(M.data.movements,customer,gross,ERP.today(doc.when),doc.id) : discount);
+    };
     M.dialog({title:'Sửa hóa đơn '+doc.id,wide:true,submitLabel:'Lưu hóa đơn',body:
       '<div class="am-form-grid">'+field('Khách hàng','<select name="customerId">'+option('','Khách lẻ',doc.customerId)+optionList(M.data.customers,'id',doc.customerId)+'</select>')+
       field('Người bán','<select name="sellerId">'+optionList(M.data.staff,'code',doc.sellerId||doc.employeeId)+'</select>')+
       field('Thanh toán','<select name="method">'+['Tiền mặt','Chuyển khoản'].map(m=>option(m,m,ERP.paymentMethod(doc))).join('')+'</select>')+
-      '<label data-cash>Tiền khách đưa (đ)<input name="cash" type="number" min="0" value="'+E(doc.cashReceived??paidTotal(doc))+'"></label><label data-bank><input type="checkbox" name="confirmed"> Đã nhận đủ chuyển khoản</label></div>'+
+      '<label data-cash>Tiền khách đưa (đ)<input name="cash" data-money inputmode="numeric" min="0" max="100000000000000" value="'+Money.format(doc.cashReceived??paidTotal(doc))+'"></label><label data-bank><input type="checkbox" name="confirmed"> Đã nhận đủ chuyển khoản</label></div>'+
       lineEditorHtml('edit-sale','sale','Hàng đã bán')+'<p data-edit-total></p>',
       onOpen(form){
-        function refresh(){if(editor)form.querySelector('[data-edit-total]').textContent='Thực thu sau chỉnh sửa: '+M.money(total());}
+        function refresh(){if(editor)form.querySelector('[data-edit-total]').textContent='Thực thu sau chỉnh sửa: '+M.money(total(form));}
         editor=setupLines(form,'edit-sale','sale',refresh,doc);
-        function sync(){const cash=form.elements.method.value==='Tiền mặt';form.querySelector('[data-cash]').hidden=!cash;form.querySelector('[data-bank]').hidden=cash;}
-        form.elements.method.onchange=sync;sync();refresh();
+        function sync(){const cash=form.elements.method.value==='Tiền mặt';form.querySelector('[data-cash]').hidden=!cash;form.elements.cash.disabled=!cash;form.querySelector('[data-bank]').hidden=cash;}
+        form.elements.customerId.onchange=refresh;form.elements.method.onchange=sync;sync();refresh();
       },
       async onSubmit(form){
-        await ERP.editSale({id:doc.id,revision:doc.editRevision||0,lines:editor.read(),expectedTotal:total(),customerId:form.elements.customerId.value,sellerId:form.elements.sellerId.value,method:form.elements.method.value,cashReceived:form.elements.cash.value,transferConfirmed:form.elements.confirmed.checked});
+        const cash=form.elements.cash;
+        await ERP.editSale({id:doc.id,revision:doc.editRevision||0,lines:editor.read(),expectedTotal:total(form),customerId:form.elements.customerId.value,sellerId:form.elements.sellerId.value,method:form.elements.method.value,cashReceived:cash.value?Money.read(cash):'',transferConfirmed:form.elements.confirmed.checked});
         await M.refresh();M.toast('Đã cập nhật hóa đơn '+doc.id);showInvoice(doc.id);
       }
     });
@@ -643,13 +726,13 @@
     const doc = (M.data.movements || []).find(row => String(row.id) === String(id) && ['sale', 'exchange'].includes(row.type));
     if (!doc) return M.dialog({title:'Tra cứu hóa đơn',body:M.empty('Không tìm thấy hóa đơn '+id)});
     const linked = ERP.linkedExchangeIds(M.data, doc.id);
-    const lockNotice = '<p>Hóa đơn đang khóa. Hãy kiểm tra và xử lý phiếu đổi trả liên quan trước khi sửa.</p>' +
+    const exchangeLinks = '<p>Phiếu đổi trả liên quan</p>' +
       linked.map(id => '<button type="button" class="am-btn secondary small" data-linked-return="' + E(id) + '">' + E(id) + '</button>').join(' ');
     M.dialog({ title: (doc.type === 'exchange' ? 'Phiếu đổi hàng ' : 'Hóa đơn ') + doc.id, wide: true, body:
-      styles + '<div class="am-form-grid am-detail">' + kv('Ngày lập', dateText(doc.when)) + kv('Khách hàng', [invoiceCustomer(doc),customer(doc.customerId)?.phone,doc.customerId].filter(Boolean).join(' · ')) + documentPeopleHtml(doc) + kv('Thanh toán', methodText(doc)) + (doc.exchangeOf ? sourceInvoice(doc.exchangeOf) : '') + '</div>' + (doc.type === 'exchange' ? '<h3>Hàng khách trả</h3>' + documentItems(doc.returnedItems || [], true, highlightCode) + '<h3>Hàng giao khách</h3>' : '') + documentItems(paidItems(doc), true, highlightCode) +
-      '<div class="op-review">' + (doc.type === 'exchange' ? kv('Giá trị hàng mới', M.money(doc.replacementTotal == null ? rawTotal(doc) : doc.replacementTotal)) + kv('Giá trị hàng đổi', M.money(doc.credit)) : '') + '<div class="am-kv op-grand-total"><span>' + (doc.type === 'exchange' ? 'Chênh lệch đã thu' : 'Đã thanh toán') + '</span><strong>' + M.money(paidTotal(doc)) + '</strong></div></div>' +
-      (doc.cashReceived != null ? '<p class="op-help">Tiền khách đưa: ' + M.money(doc.cashReceived) + ' · Tiền trả lại: ' + M.money(Math.max(0, num(doc.cashReceived) - paidTotal(doc))) + '</p>' : '') +
-      (doc.type==='sale'?(linked.length?lockNotice:'<button type="button" class="am-btn" data-edit-sale>Sửa hóa đơn</button>'):'') + '<button type="button" class="am-btn secondary op-print-btn" data-op-print-invoice>' + (doc.type === 'exchange' ? 'In phiếu đổi hàng' : 'In hóa đơn') + '</button>',
+      styles + (doc.type === 'sale' && window.AtinoDocuments ? '<div class="op-receipt-paper">' + window.AtinoDocuments.saleReceiptHtml(doc, {staff: M.data.staff, customers: M.data.customers}) + '</div>' : '') + '<div class="op-invoice-meta">' + kv('Ngày lập', dateText(doc.when)) + kv('Khách hàng', [invoiceCustomer(doc),customer(doc.customerId)?.phone,doc.customerId].filter(Boolean).join(' · ')) + documentPeopleHtml(doc) + kv('Thanh toán', methodText(doc)) + (doc.exchangeOf ? sourceInvoice(doc.exchangeOf) : '') + '</div>' + (doc.type === 'exchange' ? '<h3>Hàng khách trả</h3>' + documentItems(doc.returnedItems || [], true, highlightCode) + '<h3>Hàng giao khách</h3>' : '') + (doc.type === 'sale' && window.AtinoDocuments ? '' : documentItems(paidItems(doc), true, highlightCode)) +
+      (doc.type === 'sale' && window.AtinoDocuments ? '' : '<div class="op-exchange-totals">' + (doc.type === 'exchange' ? kv('Giá trị hàng mới', M.money(doc.replacementTotal == null ? rawTotal(doc) : doc.replacementTotal)) + kv('Giá trị hàng đổi', M.money(doc.credit)) : '') + '<div class="am-kv op-grand-total"><span>' + (doc.type === 'exchange' ? 'Chênh lệch đã thu' : 'Đã thanh toán') + '</span><strong>' + M.money(paidTotal(doc)) + '</strong></div></div>' +
+      (doc.cashReceived != null ? '<p class="op-help">Tiền khách đưa: ' + M.money(doc.cashReceived) + ' · Tiền trả lại: ' + M.money(Math.max(0, num(doc.cashReceived) - paidTotal(doc))) + '</p>' : '')) +
+      (doc.type==='sale'?(linked.length?exchangeLinks:'')+'<button type="button" class="am-btn" data-edit-sale>Sửa hóa đơn</button>':'') + '<button type="button" class="am-btn secondary" data-doc-excel>Xuất Excel</button><button type="button" class="am-btn secondary op-print-btn" data-op-print-invoice>' + (doc.type === 'exchange' ? 'In phiếu đổi hàng' : 'In hóa đơn') + '</button>',
       onOpen(form) {
         for (const button of form.querySelectorAll('[data-linked-return]')) {
           button.onclick = () => {
@@ -666,10 +749,11 @@
             if(!form.closest('dialog')?.open)return;
             form.closest('dialog').close();
             const fresh=M.data.movements.find(row=>row.id===id);
-            if(!fresh || ERP.linkedExchangeIds(M.data,id).length)showInvoice(id);
+            if(!fresh)showInvoice(id);
             else editInvoice(fresh);
           } catch(error){M.toast(error.message);} finally{button.disabled=false;}
         });
+        form.querySelector('[data-doc-excel]').onclick=e=>exportDocument(doc,e.currentTarget);
         form.querySelector('[data-op-print-invoice]').addEventListener('click', () => printInvoice(doc)); }
     });
   }
@@ -763,8 +847,8 @@
   function salesTable() {
     const docs = salesDocs();
     if (!docs.length) return M.empty('Chưa có hóa đơn trong kỳ này');
-    return '<p class="op-result-count">' + docs.length + ' giao dịch phù hợp</p><div class="am-table-wrap"><table class="am-table"><thead><tr><th>Hóa đơn</th><th>Tình trạng</th><th>Khách hàng</th><th>Thực thu</th><th>Thanh toán</th><th></th></tr></thead><tbody>' + docs.map(doc => {
-      return '<tr><td><div class="op-doc-title">' + M.invoiceLink(doc.id) + '<span class="am-muted">' + E(dateText(doc.when)) + '</span></div></td><td>' + status(doc) + '</td><td>' + E(invoiceCustomer(doc)) + '</td><td><strong>' + M.money(paidTotal(doc)) + '</strong></td><td>' + E(methodText(doc)) + '</td><td><button type="button" class="am-btn secondary small" data-op-sale-detail="' + E(doc.id) + '">Xem hóa đơn</button></td></tr>';
+    return '<p class="op-result-count">' + docs.length + ' giao dịch phù hợp</p><div class="am-table-wrap"><table class="am-table"><thead><tr><th>Hóa đơn</th><th>Khách hàng</th><th>Thực thu</th><th>Thanh toán</th><th>Tình trạng</th><th></th></tr></thead><tbody>' + docs.map(doc => {
+      return '<tr><td><div class="op-doc-title">' + M.invoiceLink(doc.id) + '<span class="am-muted">' + E(dateText(doc.when)) + '</span></div></td><td>' + E(invoiceCustomer(doc)) + '</td><td><strong>' + M.money(paidTotal(doc)) + '</strong></td><td>' + E(methodText(doc)) + '</td><td>' + status(doc) + '</td><td><button type="button" class="am-btn secondary small" data-op-sale-detail="' + E(doc.id) + '">Xem hóa đơn</button>' + (doc.type==='sale' || doc.exchangeOf ? ' <button type="button" class="am-btn secondary small" data-op-edit-invoice="'+E(doc.type==='sale'?doc.id:doc.exchangeOf)+'">'+(doc.type==='sale'?'Sửa hóa đơn':'Sửa hóa đơn gốc')+'</button>' : '') + '</td></tr>';
     }).join('') + '</tbody></table></div>';
   }
   function salesPeriodControl() {
@@ -772,12 +856,14 @@
     if (salesState.period === 'custom') return field('Từ ngày', '<input type="date" data-op-sales-from value="' + E(salesState.from) + '">') + field('Đến ngày', '<input type="date" data-op-sales-to value="' + E(salesState.to) + '">');
     return field(salesState.period === 'day' ? 'Ngày' : salesState.period === 'month' ? 'Tháng' : 'Năm', '<input data-op-sales-value type="' + (salesState.period === 'year' ? 'number' : salesState.period === 'month' ? 'month' : 'date') + '"' + (salesState.period === 'year' ? ' min="2000" max="2200" step="1"' : '') + ' value="' + E(salesState.value) + '">');
   }
-  function filteredSalesSheet() {
-    const {period, value, from, to} = salesState;
+  function filteredSalesSheets() {
+    const {period, value, from, to, search} = salesState;
     let label = 'Toàn bộ thời gian';
     if (period === 'custom') label = 'Từ ' + (from ? M.date(from) : 'đầu kỳ') + ' đến ' + (to ? M.date(to) : 'hiện tại');
     else if (period !== 'all') label = window.AtinoReports.periodLabel(period, value || ERP.today());
-    return window.AtinoReports.transactionsSheet(M.data, salesDocs(), label + ' · Giờ Việt Nam');
+    const subtitle=label+' · Giờ Việt Nam'+(search.trim()?' · Tìm: '+search.trim():'');
+    const docs=salesDocs();
+    return [window.AtinoReports.salesSummarySheet(docs,subtitle),window.AtinoReports.transactionsSheet(M.data,docs,subtitle)];
   }
   M.register('sales', {
     title: 'Hóa đơn & doanh thu', kicker: 'GIAO DỊCH BÁN HÀNG',
@@ -816,14 +902,16 @@
           M.showInvoiceList(figure.querySelector('.am-stat-top').textContent,salesDocs().filter(d=>type==='all'||d.type===type),'Chưa có giao dịch phù hợp');
         }
         if (event.target.closest('[data-op-sale-new]')) openSale();
+        const edit=event.target.closest('[data-op-edit-invoice]');
+        if(edit){const doc=M.data.movements.find(d=>d.type==='sale' && d.id===edit.dataset.opEditInvoice);if(doc)editInvoice(doc);else M.toast('Không tìm thấy hóa đơn gốc.');return;}
         const detail = event.target.closest('[data-op-sale-detail]');
         if (detail) showInvoice(detail.dataset.opSaleDetail);
         const exportExcel = event.target.closest('[data-op-sales-excel]');
         if (exportExcel) {
           if (salesDatesInvalid()) { M.toast('Chọn ngày kết thúc bằng hoặc sau ngày bắt đầu trước khi xuất báo cáo.'); return; }
-          const sheet = filteredSalesSheet();
-          const filename = 'Atino-giao-dich-' + ERP.today();
-          M.downloadWorkbook(filename + '.xlsx', [sheet], exportExcel);
+          const sheets = filteredSalesSheets();
+          const filename = 'Atino-hoa-don-doanh-thu-' + ERP.today();
+          M.downloadWorkbook(filename + '.xlsx', sheets, exportExcel);
         }
       });
       redraw();
@@ -905,7 +993,7 @@
           invalidate();
         });
         form.addEventListener('change', event => {
-          if (event.target.matches('[data-payment-input], [data-line-product-search]')) return;
+          if (event.target.matches('[data-payment-input]')) return;
           if (event.target.matches('[data-return-choose]')) {
             const input = event.target.closest('[data-return-row]').querySelector('[data-return-qty]');
             input.disabled = !event.target.checked;
@@ -913,7 +1001,7 @@
           }
           invalidate();
         });
-        form.addEventListener('input', event => { if (!event.target.matches('[data-payment-input], [data-line-product-search]')) invalidate(); });
+        form.addEventListener('input', event => { if (!event.target.matches('[data-payment-input]')) invalidate(); });
       },
       async onSubmit(form) {
         const input = exchangeInputs(form, editor);
@@ -945,6 +1033,11 @@
   function returnDocs() {
     return newest((M.data.returns || []).filter(doc => Search.match(returnSearchText(doc), returnState.search)));
   }
+  function returnMovement(doc) {
+    return (M.data.movements || []).find(row => row.id === doc.id && row.type === 'exchange') || {
+      ...doc, type:'exchange', exchangeOf:doc.invoiceId, returnedItems:doc.items, items:doc.replacements, gross:doc.replacementTotal
+    };
+  }
   function returnTable(docs = returnDocs()) {
     if (!docs.length) return M.empty('Chưa có phiếu đổi hàng phù hợp');
     return '<p class="op-result-count">' + docs.length + ' phiếu đổi hàng</p><div class="am-table-wrap"><table class="am-table"><thead><tr><th>Phiếu đổi</th><th>Hóa đơn gốc</th><th>Hàng nhận / giao</th><th class="am-right">Doanh thu tăng</th><th>Hàng nhận lại</th><th></th></tr></thead><tbody>' + docs.map(doc => '<tr><td><div class="op-doc-title"><strong>' + E(doc.id) + '</strong><span class="am-muted">' + E(dateText(doc.when)) + '</span></div></td><td>' + M.invoiceLink(doc.invoiceId) + '</td><td class="op-exchange-items"><strong>+' + quantity(doc) + ' sản phẩm nhận lại</strong><small>−' + sum(doc.replacements || [], row => row.qty) + ' sản phẩm giao khách</small></td><td class="am-right"><strong>' + M.money(doc.extraPaid) + '</strong><small class="am-unit">' + (num(doc.extraPaid) > 0 ? 'Đã ghi nhận' : 'Đổi ngang giá') + '</small></td><td>' + M.badge(doc.condition === 'damaged' ? 'Phiếu cũ' : 'Đã nhập vào kho', doc.condition === 'damaged' ? 'neutral' : 'green') + '</td><td><button type="button" class="am-btn secondary small" data-op-return-detail="' + E(doc.id) + '">Chi tiết</button></td></tr>').join('') + '</tbody></table></div>';
@@ -956,12 +1049,15 @@
     const doc = (M.data.returns || []).find(row => row.id === id);
     if (!doc) return M.toast('Không tìm thấy phiếu đổi hàng này.');
     const movement = (M.data.movements || []).find(row => row.id === id && row.type === 'exchange');
+    const invoice = M.data.movements.find(row => row.id === doc.invoiceId && row.type === 'sale');
     M.dialog({ title: 'Phiếu đổi hàng ' + doc.id, wide: true, body:
       '<div class="am-form-grid am-detail">' + sourceInvoice(doc.invoiceId) + kv('Ngày đổi', dateText(doc.when)) + documentPeopleHtml(movement || {...doc, type:'exchange'}) + kv('Tình trạng hàng trả', doc.condition === 'damaged' ? 'Hàng lỗi · phiếu cũ' : 'Đủ điều kiện bán lại') + '</div>' +
       '<h3>Hàng khách trả</h3>' + documentItems(doc.items, true) + '<h3>Sản phẩm giao thay thế</h3>' + documentItems(doc.replacements, false) +
-      '<div class="op-review">' + kv('Giá trị thực trả của hàng nhận lại', M.money(doc.credit)) + kv('Giá trị hàng giao khách', M.money(doc.replacementTotal)) + '<div class="am-kv op-grand-total"><span>Chênh lệch đã thu</span><strong>' + M.money(doc.extraPaid) + '</strong></div>' + exchangeImpact(doc, true) + '</div>' +
+      '<div class="op-exchange-totals">' + kv('Giá trị thực trả của hàng nhận lại', M.money(doc.credit)) + kv('Giá trị hàng giao khách', M.money(doc.replacementTotal)) + '<div class="am-kv op-grand-total"><span>Chênh lệch đã thu</span><strong>' + M.money(doc.extraPaid) + '</strong></div>' + exchangeImpact(doc, true) + '</div>' +
+      (invoice ? '<button type="button" class="am-btn" data-op-edit-source>Sửa hóa đơn gốc</button>' : '') +
+      '<button type="button" class="am-btn secondary" data-doc-excel>Xuất Excel</button>' +
       (movement ? '<button type="button" class="am-btn secondary op-print-btn" data-op-print-return>In phiếu đổi hàng</button>' : ''),
-      onOpen(form) { form.querySelector('[data-op-print-return]')?.addEventListener('click', () => printInvoice(movement)); }
+      onOpen(form) { form.querySelector('[data-op-edit-source]')?.addEventListener('click', () => editInvoice(invoice)); form.querySelector('[data-doc-excel]').addEventListener('click',e=>exportDocument(movement||returnMovement(doc),e.currentTarget)); form.querySelector('[data-op-print-return]')?.addEventListener('click', () => printInvoice(movement)); }
     });
   }
   M.showReturn = showReturn;
@@ -976,9 +1072,14 @@
       const docs = M.data.returns || [];
       return styles + '<div class="op-summary">' + stat('Phiếu đổi đã xử lý', docs.length, '', 'returns') + stat('Doanh thu từ đổi hàng', M.money(sum(docs, row => row.extraPaid)), '', 'paid') + stat('Hàng đã nhận lại', sum(docs, quantity) + ' sản phẩm', '', 'items') + '</div>' +
         '<section class="am-panel"><div class="am-panel-head"><div><h2>Sổ đổi hàng</h2></div><button type="button" class="am-btn" data-op-return-new>+ Lập phiếu đổi trả</button></div>' +
-        '<div class="am-toolbar am-filterbar"><label class="am-search">' + M.icon('search') + '<input type="search" data-op-return-search aria-label="Tìm phiếu đổi hàng" placeholder="Tìm phiếu đổi, hóa đơn, sản phẩm…" value="' + E(returnState.search) + '"></label></div><div data-op-return-table>' + returnTable() + '</div></section>';
+        '<div class="am-toolbar am-filterbar"><label class="am-search">' + M.icon('search') + '<input type="search" data-op-return-search aria-label="Tìm phiếu đổi hàng" placeholder="Tìm phiếu đổi, hóa đơn, sản phẩm…" value="' + E(returnState.search) + '"></label><button type="button" class="am-btn secondary small" data-op-return-excel>Xuất Excel</button></div><div data-op-return-table>' + returnTable() + '</div></section>';
     },
     bind(root) {
+      root.querySelector('[data-op-return-excel]').onclick=event=>{
+        const search=returnState.search.trim();
+        const sheet=window.AtinoReports.exchangeSheet(returnDocs().map(returnMovement),search?'Tìm: '+search:'Toàn bộ phiếu đổi hàng');
+        M.downloadWorkbook('Atino-so-doi-hang-'+ERP.today()+'.xlsx',[sheet],event.currentTarget);
+      };
       root.querySelector('[data-op-return-search]').addEventListener('input', event => { returnState.search = event.target.value; root.querySelector('[data-op-return-table]').innerHTML = returnTable(); });
       Search.attach(root.querySelector('[data-op-return-search]'), {items: () => returnDocs().map(doc => ({
         value: doc.id, label: doc.id,

@@ -5,24 +5,10 @@ const ERP=window.AtinoERP;
 const Search=window.AtinoSearch;
 Search.attach(byId('search'),{items:()=>currentUser?catalogProducts().map(product=>({value:product.code,label:product.name,detail:`${product.code} · ${product.category}`,searchText:[product.name,product.code,product.category]})):[],onSelect:item=>showDetail(item.value)});
 byId('search').placeholder='Gõ tên hoặc mã, ví dụ: áo / ao…';
-const baseAddLine=addLine;
+const addProductLine=addLine;
 addLine=function(){
- const line=baseAddLine();
- const select=line.querySelector('select[name="item"]');
- const label=select.closest('label');
- const picker=document.createElement('div');picker.className='space-y-2';
- const quickLabel=document.createElement('label');quickLabel.textContent='Tìm nhanh sản phẩm';
- const query=document.createElement('input');query.type='search';query.className='field';query.dataset.productQuery='';query.placeholder='Gõ tên hoặc mã, ví dụ: áo / ao…';
- quickLabel.append(query);label.replaceWith(picker);picker.append(quickLabel,label);
- Search.attach(query,{items:()=>Array.from(select.options).filter(option=>option.value&&!option.disabled).map(option=>{const product=selectableProducts().find(row=>row.code===option.value);return {value:product?.name||option.textContent,label:product?.name||option.textContent,detail:[option.value,product?.category,product?.active===false?'Ngừng bán':''].filter(Boolean).join(' · '),searchText:[option.textContent,product?.category],code:option.value};}),onSelect:item=>{
-  select.value=item.code;select.dispatchEvent(new Event('input',{bubbles:true}));
- }});
- query.addEventListener('input',()=>{
-  select.value='';fillSizes(line);
-  if(movementType==='receipt')fillReceiptPrice(line);
-  updateTotal();
- });
- select.addEventListener('input',()=>{const product=selectableProducts().find(row=>row.code===select.value);query.value=product?.name||'';Search.close();});
+ const line=addProductLine();
+ Search.productPicker(line.querySelector('select[name="item"]'));
  return line;
 };
 const buyerFields='<label class="am-field">Tên khách hàng<input class="field" name="buyerName" maxlength="100" autocomplete="off" placeholder="Nhập tên hoặc tìm khách cũ"></label><label class="am-field">Số điện thoại<input class="field" name="buyerPhone" type="tel" maxlength="25" autocomplete="off" placeholder="Nhập số điện thoại"></label>';
@@ -101,8 +87,8 @@ openPayment=async function(method,lines){
  byId('payment-title').textContent='Thanh toán '+method.toLowerCase();
  byId('payment-items').innerHTML=q.items.map(i=>`<li>${escapeHtml(i.name)} · ${escapeHtml(i.size)} · ${i.qty} × ${money.format(i.unitPrice)}</li>`).join('');
  byId('payment-total').textContent='Cần thu: '+money.format(q.total);
- paymentExtra.innerHTML=`<p>Khách hàng: <strong>${escapeHtml(q.customerName)}</strong></p>${method==='Tiền mặt'?`<label class="block">Khách đưa (đ)<input id="checkout-cash" class="field" type="number" min="${q.total}" step="1" value="${q.total}"></label><p id="checkout-change">Tiền trả lại: 0 ₫</p>`:`<label class="block"><input id="checkout-transfer-confirmed" type="checkbox"> Tôi đã kiểm tra và nhận đủ tiền chuyển khoản</label>`}`;
- const cash=byId('checkout-cash');if(cash)cash.addEventListener('input',()=>{byId('checkout-change').textContent='Tiền trả lại: '+money.format(Math.max(0,Number(cash.value)-q.total));});
+ paymentExtra.innerHTML=`<p>Khách hàng: <strong>${escapeHtml(q.customerName)}</strong></p>${q.discount?`<p>Giảm sinh nhật: ${money.format(q.discount)}</p>`:''}${method==='Tiền mặt'?`<label class="block">Khách đưa (đ)<input id="checkout-cash" class="field" data-money inputmode="numeric" min="${q.total}" max="100000000000000" value="${AtinoMoney.format(q.total)}"></label><p id="checkout-change">Tiền trả lại: 0 ₫</p>`:`<label class="block"><input id="checkout-transfer-confirmed" type="checkbox"> Tôi đã kiểm tra và nhận đủ tiền chuyển khoản</label>`}`;
+ const cash=byId('checkout-cash');if(cash)cash.addEventListener('input',()=>{const received=AtinoMoney.read(cash);byId('checkout-change').textContent='Tiền trả lại: '+(Number.isFinite(received)?money.format(Math.max(0,received-q.total)):'—');});
  byId('payment-error').textContent='';byId('confirm-sale').textContent='Xác nhận · Lưu hóa đơn';byId('confirm-sale').disabled=false;
  const showTransferQr=method==='Chuyển khoản'&&q.total>0&&Boolean(transferAccount);
  byId('transfer-qr-panel').hidden=!showTransferQr;byId('payment-qr').hidden=true;
@@ -111,7 +97,7 @@ openPayment=async function(method,lines){
 };
 window.AtinoCheckout={buyerFields,bindBuyer,readBuyer,reloadChoices:()=>loadCustomers({throwOnError:true}),supplierSelection:id=>{const row=supplierRows.find(s=>s.id===id);return row?{id:row.id,name:row.name}:null;},async save(draft){
  const cash=byId('checkout-cash');if(cash&&(cash.value===''||!cash.checkValidity()))throw new Error('Nhập đủ số tiền khách đưa.');
- const payload={...draft.erpInput,requestId:draft.requestId,expectedTotal:draft.total};if(cash)payload.cashReceived=Number(cash.value);else payload.transferConfirmed=!!byId('checkout-transfer-confirmed')?.checked;
+ const payload={...draft.erpInput,requestId:draft.requestId,expectedTotal:draft.total};if(cash)payload.cashReceived=AtinoMoney.read(cash);else payload.transferConfirmed=!!byId('checkout-transfer-confirmed')?.checked;
  const result=await ERP.saveSale(payload);await refreshStore();return state.movements.find(d=>d.id===result.id);
 }};
 const originalPersist=persistDocument;

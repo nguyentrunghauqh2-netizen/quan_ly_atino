@@ -22,7 +22,7 @@ Chạy skill này ở bước cuối cùng sau khi viết xong backend và nối
    - Có đoạn code nào quá dài (> 50 dòng), lồng quá sâu (> 3 cấp), hoặc dùng biểu thức khó giải thích không?
 3. **Kiểm tra ràng buộc nghiệp vụ mới nhất:**
    - Tồn kho `product_sizes` chỉ có **1 cột `stock_qty`** (không có `held`, không tách 2 kho).
-   - Không có bảng hoặc logic `vouchers` / giảm giá sinh nhật.
+   - Đúng ngày sinh, giảm 10% với hạn mức 200.000đ mỗi khách trong ngày, cộng dồn qua các hóa đơn. Tổng `paid_total` từng dòng bằng tổng thanh toán và dùng để tính giá trị hàng đổi.
    - Đổi hàng từ chối hàng lỗi (`condition_ok = TRUE`).
    - Hóa đơn lưu đủ `seller_code` và `cashier_code`.
    - Nhà cung cấp chỉ quản lý `NCC001` (Kho tổng).

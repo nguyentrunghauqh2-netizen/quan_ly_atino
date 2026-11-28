@@ -21,8 +21,9 @@ Tài liệu này là quy tắc bắt buộc cho mọi AI Agent khi đọc, thi�
 2. **Đổi hàng KHÔNG chấp nhận hàng lỗi:**
    - Nghiệp vụ Đổi hàng (`exchanges`) **từ chối hàng lỗi**. Chỉ cho phép đổi hàng **còn nguyên vẹn / đạt tiêu chuẩn bán lại** (`condition_ok = TRUE`) trong vòng **30 ngày** từ ngày mua.
    - Đổi ngang giá hoặc cao hơn giá thực trả (thu thêm chênh lệch, không hoàn tiền thừa). Hàng khách trả (đạt chuẩn) được cộng lại vào `stock_qty`.
-3. **Bán hàng & Không dùng Voucher/Ưu đãi sinh nhật:**
-   - Hóa đơn tính thẳng theo giá bán niêm yết (`số lượng × đơn giá`), lưu `paid_total` trên từng dòng để phục vụ đổi hàng từng phần chính xác.
+3. **Bán hàng & Ưu đãi sinh nhật:**
+   - Tính tổng trước giảm theo giá niêm yết (`số lượng × đơn giá`). Khách có hồ sơ được giảm 10% đúng ngày sinh, tối đa 200.000đ mỗi khách trong ngày, tính chung qua mọi hóa đơn. Không dùng voucher.
+   - Phân bổ tiền giảm theo giá trị từng dòng và lưu thực trả `paid_total` để tính giá trị đổi hàng từng phần.
    - Hóa đơn phân biệt **Người bán** (`seller_code`, dùng tính doanh thu nhân viên) và **Thu ngân** (`cashier_code`, người thu tiền/lập hóa đơn).
 4. **Nhà cung cấp đầu mối duy nhất:**
    - Cửa hàng chỉ quản lý đầu mối **Kho tổng** (`NCC001`), cho phép cập nhật thông tin liên hệ, không tạo thêm nhà cung cấp khác.
@@ -31,6 +32,7 @@ Tài liệu này là quy tắc bắt buộc cho mọi AI Agent khi đọc, thi�
    - Chỉ có `manager` (Quản lý) và `employee` (Nhân viên).
    - Giá nhập (`import_price`, `total_amount` phiếu nhập) chỉ `manager` được xem và nhập/bổ sung; `employee` chỉ thao tác số lượng và giá bán.
    - Hỗ trợ tài khoản cá nhân: ảnh đại diện, thông tin cá nhân, đổi mật khẩu và đặt lại mật khẩu bằng mã khôi phục dùng 1 lần.
+6. **Nút Xuất Excel:** Dùng để tải `.xlsx` ở các mục danh sách sản phẩm, phiếu nhập kho, phiếu xuất kho, danh sách khách hàng, dự toán lương nhân viên, phiếu đổi hàng và hóa đơn & doanh thu. File từ danh sách áp dụng bộ lọc hiện tại. Giá nhập trong file chỉ dành cho Quản lý.
 
 ## 3. Quy tắc Lập trình Hướng đối tượng (OOP) & Thuật toán dễ hiểu
 
@@ -48,3 +50,5 @@ Tài liệu này là quy tắc bắt buộc cho mọi AI Agent khi đọc, thi�
   - `.agents/skills/frontend-api-integration/SKILL.md`
   - `.agents/skills/viva-defense-readiness/SKILL.md`
   - Khi nhận yêu cầu, đối chiếu với quy tắc và hành vi thực tế. Nếu có căn cứ phản biện, nêu tác động và phương án trước khi sửa. Dùng [.agents/skills/atino-phan-bien/SKILL.md](.agents/skills/atino-phan-bien/SKILL.md) khi rà soát hoặc gặp mâu thuẫn.
+
+- Khi sửa giao diện một mục, đồng bộ cả danh sách, cửa sổ chi tiết, biểu mẫu thêm/sửa và các phần mở rộng bên trong. Kiểm thử theo đường người dùng bấm từ ngoài vào trong.

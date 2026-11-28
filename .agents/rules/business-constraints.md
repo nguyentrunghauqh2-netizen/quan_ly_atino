@@ -19,7 +19,8 @@ Mọi code Backend Python, SQL MySQL và nối API Frontend đều phải tuân 
    - Xuất kho (`dispatch`) chỉ cho xuất ra ngoài cửa hàng (từ chối nơi nhận nội bộ) và trừ `stock_qty`.
 
 4. **Bán hàng & Thu ngân (POS):**
-   - Không có voucher, không có giảm giá sinh nhật; hóa đơn tính thẳng `qty * unit_price`.
+   - Tính `gross_amount` từ `qty * unit_price`. Khách có hồ sơ được giảm 10% đúng ngày sinh, tối đa 200.000đ mỗi khách trong ngày, tính chung qua mọi hóa đơn. Không dùng voucher.
+   - Phân bổ tiền giảm theo giá trị từng dòng, lưu `paid_total` và dùng tổng thực trả để thanh toán, tính doanh thu và đổi hàng.
    - Hóa đơn tách riêng **Người bán (`seller_code`)** và **Thu ngân (`cashier_code`)**; doanh thu thống kê theo người bán.
    - Chặn dòng trùng `(product_code, size_name)` và chặn số lượng vượt `stock_qty`.
    - Thanh toán `Tiền mặt` yêu cầu `cash_received >= total_amount` và tính `change_amount`; `Chuyển khoản` yêu cầu `transfer_confirmed = TRUE`.
@@ -31,7 +32,7 @@ Mọi code Backend Python, SQL MySQL và nối API Frontend đều phải tuân 
    - Đổi ngang giá hoặc cao hơn giá trị hàng trả (`replacement_total >= credit_amount`), thu thêm chênh lệch, không hoàn tiền thừa. Cộng hàng trả vào `stock_qty` và trừ hàng mới lấy khỏi `stock_qty`.
 
 6. **Khách hàng (CRM):**
-   - Lưu hồ sơ khách hàng (`KH...`), kiểm tra trùng SĐT, không tự động giảm giá sinh nhật.
+   - Lưu hồ sơ khách hàng (`KH...`), kiểm tra trùng SĐT và dùng ngày sinh trên hồ sơ để xét ưu đãi ở POS.
    - Tự động tính tổng chi tiêu (từ hóa đơn bán + tiền thu thêm đổi hàng) và phân hạng: `Đồng` (`< 2tr`), `Bạc` (`>= 2tr`), `Vàng` (`>= 5tr`), `Kim cương` (`>= 10tr`).
 
 7. **Nhân viên & Ca làm việc (HRM):**

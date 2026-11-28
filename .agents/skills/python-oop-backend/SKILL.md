@@ -102,7 +102,9 @@ backend/
    - Chỉ có `stock_qty` cho từng `(product_code, size_name)`.
    - Nhập kho cộng `stock_qty`; Xuất kho (chỉ xuất ra ngoài, chặn nơi nhận nội bộ) hoặc Bán hàng kiểm tra `qty <= stock_qty` rồi trừ `stock_qty`.
 2. **Bán hàng (`SaleService`)**:
-   - Không có voucher và không giảm giá sinh nhật; `total_amount = sum(qty * unit_price)` và lưu `paid_total = qty * unit_price` cho từng dòng.
+   - Tính `gross_amount = sum(qty * unit_price)`. Khách có hồ sơ được giảm 10% đúng ngày sinh, làm tròn đến đồng và giới hạn tổng tiền giảm 200.000đ mỗi khách trong ngày. Không dùng voucher.
+   - Khi lưu, tính lại ưu đãi trong cùng transaction với hóa đơn và tuần tự hóa thao tác theo mã khách để tránh vượt hạn mức. Khi sửa, xét ngày lập gốc và loại chính hóa đơn đang sửa khỏi số tiền giảm đã dùng.
+   - Phân bổ tiền giảm theo tỷ lệ thành tiền từng dòng, phân phần lẻ còn lại theo thứ tự dòng. Lưu `paid_total` từng dòng sao cho tổng bằng `total_amount`.
    - Ghi nhận cả `seller_code` (người bán tính doanh thu) và `cashier_code` (thu ngân thu tiền).
 3. **Đổi hàng (`ExchangeService`)**:
    - Kiểm tra hóa đơn tồn tại và `0 <= (today - invoice_date).days <= 30`.

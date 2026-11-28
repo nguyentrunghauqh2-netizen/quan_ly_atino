@@ -37,12 +37,14 @@ Tài liệu này tổng hợp toàn bộ **chức năng đã chốt** (khớp 10
   - Quản lý nhập kèm giá vốn (`import_price`) và xem tổng tiền phiếu nhập.
   - Nhân viên chỉ nhập số lượng và giá bán (`cost_status = 'pending'`); Quản lý bổ sung giá nhập sau (`completeReceiptCost`) mà không làm tăng lại tồn kho.
 - **Xuất kho (`XK...`):** Chỉ xuất ra ngoài cửa hàng (chặn nơi nhận nội bộ), kiểm tra đủ tồn và trừ `stock_qty`.
+- Trước khi lưu phiếu nhập hoặc xuất, người lập xem lại nơi giao hoặc nơi nhận và tổng số lượng. Khi xác nhận lưu phiếu xuất, hệ thống kiểm tra lại tồn theo kích cỡ.
 
 ### 4) Bán hàng & Thu ngân (POS)
 - Tìm kiếm nhanh sản phẩm không dấu theo tên, mã SKU hoặc loại hàng.
 - Tách riêng **Người bán (`seller_code`, dùng tính doanh thu nhân viên)** và **Thu ngân (`cashier_code`, người thu tiền/lập hóa đơn)**.
 - Chọn khách hàng (hoặc `Khách lẻ`), chọn Size và số lượng (chặn trùng dòng và chặn vượt `stock_qty`).
-- Tính thẳng tiền theo giá niêm yết (`số lượng × đơn giá`), lưu `paid_total` từng dòng để phục vụ đổi hàng. *(Không có voucher và không giảm giá sinh nhật).*
+- Cộng `số lượng × đơn giá` để tính tổng trước giảm. Khách có hồ sơ được giảm 10% đúng ngày sinh theo giờ Việt Nam, làm tròn đến đồng, tối đa 200.000đ mỗi khách trong ngày qua nhiều hóa đơn. Không dùng voucher.
+- Phân bổ số tiền giảm theo thành tiền từng dòng và lưu `paid_total` sau giảm để tính tiền đổi hàng từng phần. Tổng các dòng thực trả bằng tổng phải thanh toán.
 - Thanh toán **Tiền mặt** (nhập tiền khách đưa $\ge$ tổng tiền, tính tiền thối) hoặc **Chuyển khoản** (xác nhận đã nhận tiền). Hỗ trợ in hóa đơn.
 
 ### 5) Đổi hàng (Không nhận hàng lỗi)
@@ -65,7 +67,7 @@ Tài liệu này tổng hợp toàn bộ **chức năng đã chốt** (khớp 10
 
 ### 8) Báo cáo, Thống kê & Xuất Excel `.xlsx`
 - Lọc theo **Ngày / Tháng / Năm**: Doanh thu thực thu (bán + thu chênh lệch đổi hàng), tách Tiền mặt vs Chuyển khoản, số đơn bán, số phiếu đổi, top sản phẩm bán chạy, doanh thu theo người bán, giá trị tồn theo giá vốn.
-- Xuất báo cáo Excel `.xlsx` nhiều sheet có biểu đồ và định dạng bảng.
+- Nút **Xuất Excel** tải file `.xlsx` ở danh sách sản phẩm, phiếu nhập kho, phiếu xuất kho, danh sách khách hàng, dự toán lương nhân viên, phiếu đổi hàng và Hóa đơn & doanh thu. File danh sách dùng bộ lọc đang áp dụng. File Hóa đơn & doanh thu gồm bảng doanh thu và danh sách giao dịch của cùng bộ lọc.
 
 ### 9) Chính sách cửa hàng & Nhật ký thao tác (Audit Trail)
 - Lưu cấu hình chính sách chung (`return_days = 30`, điều kiện đổi hàng).

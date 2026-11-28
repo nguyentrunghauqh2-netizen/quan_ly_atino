@@ -225,7 +225,7 @@
     function refresh() {
       if (destroyed || suppressInput || composing) return controller;
       const query = normalize(input.value);
-      if (!input.isConnected || doc.activeElement !== input || input.disabled) {
+      if ((config.afterTyping && !query) || !input.isConnected || doc.activeElement !== input || input.disabled) {
         if (active === controller) hide();
         return controller;
       }
@@ -286,12 +286,19 @@
       return controller;
     }
 
+    let typingTimer;
     function onInput(event) {
+      if (config.afterTyping) {
+        clearTimeout(typingTimer);
+        hide();
+        if (!event.isComposing && !suppressInput && normalize(input.value)) typingTimer = setTimeout(refresh, 220);
+        return;
+      }
       if (!event.isComposing) refresh();
     }
 
     function onFocus() { refresh(); }
-    function onBlur() { hide(); }
+    function onBlur() { clearTimeout(typingTimer); hide(); }
     function onCompositionStart() { composing = true; hide(); }
     function onCompositionEnd() { composing = false; refresh(); }
 
@@ -354,5 +361,59 @@
     return controller;
   }
 
-  global.AtinoSearch = Object.freeze({ normalize: normalize, match: match, rank: rank, attach: attach, close: close });
+  function productPicker(select) {
+    if (!HTMLElement.prototype.showPopover) return;
+    function open() {
+      const panel = element('div','atino-product-picker');
+      panel.setAttribute('popover','auto');
+      const query = element('input');
+      query.type = 'search';
+      query.placeholder = 'Tìm tên hoặc mã sản phẩm';
+      query.setAttribute('aria-label',query.placeholder);
+      const list = element('div','atino-product-options');
+      panel.append(query,list);
+      (select.closest('dialog') || document.body).append(panel);
+      function draw() {
+        list.replaceChildren();
+        for (const option of select.options) {
+          if (!option.value || option.disabled || !match(option.text,query.value)) continue;
+          const button = element('button','',option.text);
+          button.type = 'button';
+          button.onclick = () => {
+            select.value = option.value;
+            for (const type of ['input','change']) select.dispatchEvent(new Event(type,{bubbles:true}));
+            panel.hidePopover();
+            select.focus();
+          };
+          list.append(button);
+        }
+        if (!list.childElementCount) list.textContent = 'Không tìm thấy sản phẩm';
+      }
+      query.oninput = draw;
+      panel.onkeydown = event => {
+        const buttons = [...list.children];
+        const index = buttons.indexOf(document.activeElement);
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          event.preventDefault();
+          buttons[Math.min(buttons.length-1,Math.max(0,index+(event.key==='ArrowDown'?1:-1)))]?.focus();
+        } else if (event.key === 'Enter' && event.target===query) {
+          event.preventDefault(); buttons[0]?.click();
+        } else if (event.key === 'Escape') {
+          event.preventDefault(); event.stopPropagation(); panel.hidePopover(); select.focus();
+        }
+      };
+      panel.addEventListener('toggle',event=>{if(event.newState==='closed') panel.remove();});
+      draw();
+      panel.showPopover();
+      const rect=select.getBoundingClientRect();
+      panel.style.width=Math.min(Math.max(rect.width,260),innerWidth-16)+'px';
+      panel.style.left=Math.max(8,Math.min(rect.left,innerWidth-panel.offsetWidth-8))+'px';
+      panel.style.top=(innerHeight-rect.bottom>=panel.offsetHeight?rect.bottom:Math.max(8,rect.top-panel.offsetHeight))+'px';
+      query.focus();
+    }
+    select.addEventListener('mousedown',event=>{if(event.button===0) event.preventDefault();});
+    select.addEventListener('click',open);
+    select.addEventListener('keydown',event=>{if(['Enter',' ','ArrowDown','ArrowUp'].includes(event.key)){event.preventDefault();open();}});
+  }
+  global.AtinoSearch = Object.freeze({productPicker, normalize, match, rank, attach, close});
 })(window);

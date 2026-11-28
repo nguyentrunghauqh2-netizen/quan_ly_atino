@@ -2,9 +2,9 @@
 
 Bản rà soát ngày 27/11/2026 giữ 12 thực thể nghiệp vụ và 2 thực thể hệ thống. Sơ đồ thể hiện khóa và quan hệ. Từ điển bên dưới liệt kê các thuộc tính. Đây là thiết kế MySQL để duyệt. Bản web local hiện lưu chứng từ trong IndexedDB, gộp nhiều loại chứng từ vào `movements` và lưu các dòng hàng trong `items`.
 
-![Sơ đồ E–R chi tiết 14 thực thể](./erd-atino.svg)
+![Sơ đồ E–R chi tiết 14 thực thể trước khi bổ sung trường tiền giảm sinh nhật](./erd-atino.svg)
 
-[Ảnh PNG kích thước đầy đủ](./erd-atino.png)
+[Ảnh PNG của bản trước](./erd-atino.png). Sơ đồ Mermaid và từ điển thuộc tính bên dưới đã bổ sung `birthday_discount`.
 
 ## 1. Quan hệ giữa các thực thể
 
@@ -141,6 +141,7 @@ erDiagram
         varchar seller_name "Tên người bán"
         varchar cashier_name "Tên thu ngân"
         bigint gross_amount "Tổng trước giảm"
+        bigint birthday_discount "Tiền giảm sinh nhật"
         varchar payment_status "Trạng thái thanh toán"
         int edit_revision "Phiên bản hóa đơn"
         datetime last_printed_at "Lần in gần nhất"
@@ -342,11 +343,12 @@ Cặp `(product_code, size_name)` ở mỗi dòng chứng từ tham chiếu cặ
 - `seller_code` `VARCHAR(20) NOT NULL` (`FK -> staff.code`) — Người bán (tính doanh thu)
 - `cashier_code` `VARCHAR(20) NOT NULL` (`FK -> staff.code`) — Thu ngân (lập hóa đơn & thu tiền)
 - `customer_name`, `seller_name`, `cashier_name` — tên trên hóa đơn.
-- `gross_amount` — cộng tiền các dòng trước khoản giảm trên chứng từ cũ.
+- `gross_amount` — tổng thành tiền các dòng theo giá niêm yết trước khi giảm.
+- `birthday_discount` `BIGINT NULL` — số tiền đã giảm sinh nhật, bằng `0` khi hóa đơn mới không phát sinh giảm. Để `NULL` cho hóa đơn cũ trước khi áp dụng chính sách. Khi chuyển dữ liệu web, dùng `birthdayPricing` để phân biệt và lấy số tiền từ `discount`.
 - `payment_status` — tình trạng thanh toán.
 - `edit_revision` — phiên bản hóa đơn để phát hiện hai người cùng sửa.
 - `last_printed_at` — thời điểm bấm in gần nhất, để trống nếu chưa in.
-- `total_amount` `BIGINT NOT NULL` — Tổng tiền thanh toán
+- `total_amount` `BIGINT NOT NULL` — Tổng tiền thanh toán sau giảm, bằng tổng `paid_total` của các dòng.
 - `payment_method` `ENUM('Tiền mặt', 'Chuyển khoản') NOT NULL` — Phương thức thanh toán
 - `cash_received` `BIGINT NULL` — Tiền khách đưa
 - `change_amount` `BIGINT NOT NULL DEFAULT 0` — Tiền thối lại
@@ -412,5 +414,6 @@ Cặp `(product_code, size_name)` ở mỗi dòng chứng từ tham chiếu cặ
 
 - Khách hàng dùng mã KH làm khóa chính và tra thêm theo tên, số điện thoại. Khách lẻ để trống liên kết khách hàng trong hóa đơn.
 - Hóa đơn cần chỉ mục theo (mã khách, ngày lập), (người bán, ngày lập) và (thu ngân, ngày lập). Phiếu kho cần (loại phiếu, ngày lập), (nhà cung cấp, ngày lập) và (người lập, ngày lập).
+- Tra hạn mức ưu đãi bằng tổng `birthday_discount` của các hóa đơn theo (mã khách, ngày lập, giờ Việt Nam). Khi sửa hóa đơn, dùng ngày lập ban đầu và bỏ hóa đơn đang sửa khỏi tổng đã dùng.
 - Tra lịch sử sản phẩm bằng (mã sản phẩm, cỡ) trên từng bảng chi tiết. Tra đổi trả bằng mã hóa đơn gốc trên phiếu đổi. Tra nhật ký bằng mã tham chiếu và cặp (người thực hiện, ngày giờ).
 - Đề xuất lưu mã yêu cầu khi lập phiếu, hóa đơn và phiếu đổi, duy nhất theo người lập và loại nghiệp vụ, để tra hoặc nhận lại kết quả khi gửi lại cùng yêu cầu. Web hiện dùng requestId và chữ ký nội dung.
