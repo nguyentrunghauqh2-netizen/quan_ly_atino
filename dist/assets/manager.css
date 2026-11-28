@@ -593,6 +593,8 @@ body.manager-active>header,body.manager-active>main,body.manager-active>footer,b
 #manager-app .am-local-date input:focus-visible::-webkit-datetime-edit { opacity: 0; }
 #manager-app .am-period-input .am-local-date > span { margin-left: 0; color: #4e5b74; font-size: .875rem; }
 #manager-app .am-period-input:has(.am-local-date input:focus-visible) { outline: 2px solid #8394b6; outline-offset: 2px; }
+#manager-app .op-removed-item { background: #fff4f4; color: #a32130; }
+#manager-app .op-removed-item del { color: #a32130; text-decoration-thickness: 2px; }
 
 @media screen {
   #manager-app .am-workspace, #manager-app .am-dialog { font-size: 14px; line-height: 1.45; }

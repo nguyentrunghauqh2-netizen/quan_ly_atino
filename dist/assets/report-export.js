@@ -152,7 +152,7 @@
     let sales = 0, exchanges = 0, sold = 0, extra = 0, cash = 0, bank = 0;
     for (const doc of docs) {
       const paid = ERP.documentPaidTotal(doc);
-      if (doc.type === 'sale') { sales++; sold += paid; }
+      if (doc.type === 'sale' && !ERP.isVoidedSale(doc)) { sales++; sold += paid; }
       if (doc.type === 'exchange') { exchanges++; extra += paid; }
       const method = ERP.paymentMethod(doc);
       if (method === 'Tiền mặt') cash += paid;

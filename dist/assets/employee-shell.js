@@ -14,10 +14,19 @@
     sale:{title:'Bán hàng',icon:'sales',create:'Tạo hóa đơn',history:'Hóa đơn đã lập',type:'sale',quantity:'Sản phẩm đã bán',party:'Khách hàng'}
   };
   const filters = Object.fromEntries(Object.keys(routes).map(key=>[key,{query:'',from:'',to:''}]));
-  let app, route='sale', mode='create', searchControl, shiftRequest=0, shiftState='loading';
+  let app, route='sale', mode='create', shiftRequest=0, shiftState='loading';
   let ownShifts=[];
   const editor = document.getElementById('transaction');
   const notice = document.getElementById('notice');
+  const productFilter = document.createElement('label');
+  productFilter.hidden = true;
+  productFilter.innerHTML = 'Tìm sản phẩm<input type="search" class="field" data-ae-product-filter autocomplete="off" placeholder="Tìm theo tên, mã hoặc loại hàng">';
+  const productQuery = productFilter.querySelector('input');
+  transactionLines.before(productFilter);
+  productQuery.addEventListener('input', filterEditorProducts);
+  productQuery.addEventListener('keydown', event => {
+    if (event.key === 'Enter') event.preventDefault();
+  });
   const editorHome = document.createComment('Atino transaction home');
   const noticeHome = document.createComment('Atino notice home');
   editor.before(editorHome); notice.before(noticeHome);
@@ -48,6 +57,7 @@
   function open(type){
     if(!allowedEmployee()||!routes[type])return;
     build();route=type;mode='create';
+    productFilter.hidden = type !== 'sale';
     app.querySelector('.ae-editor').append(editor);app.querySelector('.ae-notice-slot').append(notice);
     app.hidden=false;document.body.classList.add('employee-active');app.classList.remove('ae-nav-open');
     app.querySelector('[data-ae-menu]').setAttribute('aria-expanded','false');
@@ -61,7 +71,7 @@
     renderSummary();renderMode();loadOwnShifts();
   }
   function close(){
-    Search.close();searchControl?.destroy();searchControl=null;shiftRequest++;ownShifts=[];shiftState='loading';
+    shiftRequest++;ownShifts=[];shiftState='loading';
     Object.values(filters).forEach(filter=>{filter.query='';filter.from='';filter.to='';});
     document.body.classList.remove('employee-active');
     if(app){app.hidden=true;app.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());}
@@ -77,7 +87,11 @@
     const docs=ownDocs().filter(doc=>Number.isFinite(doc.when)&&ERP.today(doc.when)===ERP.today());
     const config=routes[route];
     const todayShifts=ownShifts.filter(shift=>shift.date===ERP.today());
-    const shiftText=todayShifts.length?ERP.workSlots.filter(slot=>todayShifts.some(s=>ERP.matchesSlot(s,slot))).map(slot=>slot.name+' '+slot.start+'–'+slot.end).join(' · '):shiftState==='loading'?'Đang tải…':shiftState==='error'?'Chưa tải được ca làm':'Chưa có lịch làm việc';
+    const shiftText=todayShifts.length?todayShifts.map(shift=>{
+      if(shift.fullDay)return 'Cả ngày';
+      const slot=ERP.workSlots.find(slot=>shift.start===slot.start&&shift.end===slot.end);
+      return (slot?slot.name+' ':'')+shift.start+'–'+shift.end;
+    }).join(' · '):shiftState==='loading'?'Đang tải…':shiftState==='error'?'Chưa tải được ca làm':'Chưa có lịch làm việc';
     app.querySelector('[data-ae-summary]').innerHTML=`<div><button type="button" data-summary="documents" aria-haspopup="dialog"><span>${route==='sale'?'Hóa đơn':'Phiếu'} bạn lập hôm nay</span><strong>${num(docs.length)}</strong><small>Xem ${route==='sale'?'hóa đơn':'phiếu'} đã lập ›</small></button></div><div><button type="button" data-summary="items" aria-haspopup="dialog"><span>${esc(config.quantity)} hôm nay</span><strong>${num(docs.reduce((sum,doc)=>sum+quantity(doc),0))}</strong><small>Xem số lượng theo sản phẩm ›</small></button></div><div class="ae-shift-summary"><span>${icon('clock')} Ca làm hôm nay</span><strong>${esc(shiftText)}</strong><small>${todayShifts.length?(todayShifts.every(shift=>shift.status==='completed')?'Đã hoàn thành':'Đã phân ca'):'Lịch làm việc trong ngày'}</small></div>`;
   }
   async function loadOwnShifts(){
@@ -85,18 +99,35 @@
     try{const data=await ERP.checkoutData();if(token!==shiftRequest||!allowedEmployee()||currentUser.code!==code)return;ownShifts=data.shifts||[];shiftState='ready';renderSummary();}
     catch{if(token===shiftRequest&&allowedEmployee()){shiftState='error';renderSummary();}}
   }
+  function renderProductOptions(line, products, query = '') {
+    const select = line.querySelector('[name="item"]');
+    const previous = select.value;
+    const choices = products.filter(product => product.code === previous || Search.match([product.code, product.name, product.category], query));
+    const placeholder = query.trim() && !choices.length ? 'Không tìm thấy sản phẩm' : 'Chọn sản phẩm';
+    select.replaceChildren(new Option(placeholder, ''));
+    for (const product of choices) {
+      const label = product.code + ' · ' + product.name + (product.active === false ? ' · Ngừng bán' : '');
+      select.add(new Option(label, product.code));
+    }
+    select.value = choices.some(product => product.code === previous) ? previous : '';
+    return select.value;
+  }
+  function filterEditorProducts() {
+    const products = selectableProducts();
+    for (const line of transactionLines.children) renderProductOptions(line, products, productQuery.value);
+  }
   function refreshEditorOptions(){
+    const products = selectableProducts();
+    const query = movementType === 'sale' ? productQuery.value : '';
     for(const line of document.querySelectorAll('#transaction-lines .movement')){
-      const select=line.querySelector('[name="item"]'),previous=select.value,sizeSelect=line.querySelector('[name="size"]'),size=sizeSelect.value;
-      select.innerHTML='<option value="">Chọn sản phẩm</option>'+selectableProducts().map(product=>`<option value="${esc(product.code)}">${esc(product.code)} · ${esc(product.name)}${product.active===false?' · Ngừng bán':''}</option>`).join('');
-      select.value=previous;fillSizes(line);sizeSelect.value=size;
-      if(movementType==='receipt' && !select.value) fillReceiptPrice(line);
-      const quick=line.querySelector('[data-product-query]');if(quick)quick.value=selectableProducts().find(product=>product.code===select.value)?.name||'';
+      const sizeSelect=line.querySelector('[name="size"]'),size=sizeSelect.value;
+      const selected = renderProductOptions(line, products, query);
+      fillSizes(line);sizeSelect.value=size;
+      if(movementType==='receipt' && !selected) fillReceiptPrice(line);
     }
     updateTotal();
   }
   function renderMode(){
-    Search.close();
     app.querySelectorAll('[data-ae-mode]').forEach(button=>{const selected=button.dataset.aeMode===mode;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));});
     app.querySelector('.ae-editor').hidden=mode!=='create';app.querySelector('.ae-history').hidden=mode!=='history';
     if(mode==='history')renderHistory();
@@ -108,13 +139,11 @@
   function filteredDocs(){return datedDocs().filter(doc=>Search.match(textFor(doc),filters[route].query));}
   function invalidRange(){const f=filters[route];return !!(f.from&&f.to&&f.to<f.from);}
   function renderHistory(){
-    searchControl?.destroy();
     const panel=app.querySelector('.ae-history'),config=routes[route],f=filters[route];
-    panel.innerHTML=`<div class="ae-history-toolbar"><label class="ae-query">Tìm ${route==='sale'?'hóa đơn':'phiếu'}<input type="search" data-ae-query value="${esc(f.query)}" placeholder="Gõ mã phiếu, tên hàng, ví dụ: áo, balo…"></label><label>Từ ngày<input type="date" data-ae-from value="${esc(f.from)}"></label><label>Đến ngày<input type="date" data-ae-to value="${esc(f.to)}"></label><button type="button" class="ae-btn secondary" data-ae-export>${icon('download')} Tải Excel</button></div><p class="ae-filter-error" data-ae-filter-error role="alert" hidden>Ngày kết thúc phải bằng hoặc sau ngày bắt đầu.</p><p class="ae-results" data-ae-results></p><div class="ae-table-wrap"><table class="ae-table"><thead><tr><th>${route==='sale'?'Hóa đơn':'Mã phiếu'}</th><th>Thời gian</th><th>${esc(config.party)}</th><th class="ae-numeric">Số lượng</th>${route==='sale'?'<th class="ae-numeric">Thực thu</th>':''}<th><span class="ae-sr-only">Thao tác</span></th></tr></thead><tbody data-ae-rows></tbody></table></div>`;
+    panel.innerHTML=`<div class="ae-history-toolbar"><label class="ae-query">Tìm ${route==='sale'?'hóa đơn':'phiếu'}<input type="search" data-ae-query value="${esc(f.query)}" placeholder="Gõ mã phiếu, tên hàng, ví dụ: áo, balo…"></label><label>Từ ngày${window.AtinoManager.dateInput(`<input type="date" data-ae-from value="${esc(f.from)}">`,f.from)}</label><label>Đến ngày${window.AtinoManager.dateInput(`<input type="date" data-ae-to value="${esc(f.to)}">`,f.to)}</label><button type="button" class="ae-btn secondary" data-ae-export>${icon('download')} Xuất Excel</button></div><p class="ae-filter-error" data-ae-filter-error role="alert" hidden>Ngày kết thúc phải bằng hoặc sau ngày bắt đầu.</p><p class="ae-results" data-ae-results></p><div class="ae-table-wrap"><table class="ae-table"><thead><tr><th>${route==='sale'?'Hóa đơn':'Mã phiếu'}</th><th>Thời gian</th><th>${esc(config.party)}</th><th class="ae-numeric">Số lượng</th>${route==='sale'?'<th class="ae-numeric">Thực thu</th>':''}<th><span class="ae-sr-only">Thao tác</span></th></tr></thead><tbody data-ae-rows></tbody></table></div>`;
     const query=panel.querySelector('[data-ae-query]');
-    searchControl=Search.attach(query,{items:()=>datedDocs().map(doc=>({value:doc.id,label:doc.id,detail:(doc.items||[]).map(item=>item.name).join(', '),searchText:textFor(doc)})),onSelect:item=>showDetail(item.value)});
     query.addEventListener('input',()=>{f.query=query.value;renderRows();});
-    for(const key of ['from','to'])panel.querySelector('[data-ae-'+key+']').addEventListener('change',event=>{f[key]=event.target.value;Search.close();renderRows();});
+    for(const key of ['from','to'])panel.querySelector('[data-ae-'+key+']').addEventListener('change',event=>{f[key]=event.target.value;event.target.previousElementSibling.textContent=f[key]?f[key].split('-').reverse().join('/'):'dd/mm/yyyy';renderRows();});
     panel.querySelector('[data-ae-export]').addEventListener('click',exportHistory);
     panel.onclick=event=>{const button=event.target.closest('[data-ae-detail]');if(button)showDetail(button.dataset.aeDetail);};
     renderRows();
@@ -182,8 +211,16 @@
     window.AtinoManager.downloadTable(`Atino_${route}_${currentUser.code}`,routes[route].history,rows,event.currentTarget,formats);
   }
   window.AtinoEmployee={open,close,refresh(){if(app&&!app.hidden&&allowedEmployee()){refreshAccount();renderSummary();if(mode==='history')renderHistory();loadOwnShifts();}}};
+  const previousAddLine = addLine;
+  addLine = function () {
+    const line = previousAddLine();
+    if (allowedEmployee() && movementType === 'sale' && productQuery.value) {
+      renderProductOptions(line, selectableProducts(), productQuery.value);
+    }
+    return line;
+  };
   const previousStart=startMovement;
-  startMovement=function(type){previousStart(type);if(allowedEmployee())open(type);};
+  startMovement=function(type){productQuery.value='';previousStart(type);if(allowedEmployee())open(type);};
   const previousSignOut=signOutView;
   signOutView=function(message=''){close();previousSignOut(message);};
   const previousRefresh=refreshStore;

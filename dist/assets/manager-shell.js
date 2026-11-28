@@ -54,10 +54,9 @@ const nav = [
 ];
 let app, view, renderToken = 0, toastTimer;
 let inventoryFilters = {search:'',category:''};
-const sizeThreshold = product => ERP.stockThreshold(M.data, product.code);
 let supplierFilters = {search:'',status:'all'};
 const M = window.AtinoManager = {
- data:null, route:'overview', period:'month', periodValue:ERP.today().slice(0,7), ERP,
+ dateInput:vietnameseDateInput, data:null, route:'overview', period:'month', periodValue:ERP.today().slice(0,7), ERP,
  esc:e, money:value=>currency.format(n(value)), today:()=>ERP.today(),
  date:value=>{
   if (value === null || value === undefined || value === '') return '—';
@@ -80,7 +79,6 @@ const M = window.AtinoManager = {
  },
  close(){
   ++renderToken;
-  Search.close();
   document.body.classList.remove('manager-active');
   if(app){app.hidden=true;app.classList.remove('am-nav-open');app.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());}
   M.data=null;
@@ -114,7 +112,6 @@ const M = window.AtinoManager = {
  },
  dialog({title,body,submitLabel='Lưu',onSubmit,wide=false,onOpen}){
   buildShell();
-  Search.close();
   const dialog=document.createElement('dialog');
   dialog.className='am-dialog'+(wide?' am-dialog-wide':'');
   dialog.dataset.screen=M.route;
@@ -127,7 +124,7 @@ const M = window.AtinoManager = {
   let busy=false;
   dialog.querySelectorAll('[data-am-cancel]').forEach(button=>button.addEventListener('click',()=>{if(!busy)dialog.close();}));
   dialog.addEventListener('cancel',event=>{if(busy)event.preventDefault();});
-  dialog.addEventListener('close',()=>{Search.close();dialog.remove();if(previousFocus?.isConnected)previousFocus.focus({preventScroll:true});},{once:true});
+  dialog.addEventListener('close',()=>{dialog.remove();if(previousFocus?.isConnected)previousFocus.focus({preventScroll:true});},{once:true});
   form.addEventListener('submit',async event=>{
    event.preventDefault();if(busy||!onSubmit)return;
    const button=form.querySelector('button[type=submit]');
@@ -187,7 +184,6 @@ function buildShell(){
 }
 function render(){
  if(!app||!M.data)return;
- Search.close();
  const screen=screens.get(M.route)||screens.get('overview');
  app.querySelector('[data-am-title]').textContent=screen.title;
  app.querySelector('[data-am-breadcrumb]').textContent=nav.find(row=>row[0]===M.route)?.[1]||screen.title;
@@ -453,11 +449,6 @@ function showTopProducts() {
     if(link)openSales(link.dataset.productSales);
    });
    query.addEventListener('input',draw);
-   Search.attach(query,{items:()=>products.map(product=>({
-    value:product.code,label:product.name,
-    detail:`${product.code} · Đã bán ${number.format(product.qty)} sản phẩm`,
-    searchText:[product.code,product.name]
-   })),onSelect:item=>openSales(item.value)});
    draw();
   }
  });
@@ -477,11 +468,12 @@ M.register('overview',{
  render(){
   const s=currentMetrics(), stock=M.data.stock.total;
   const issues=ERP.stockAttention(M.data);
+  const stockValue = s.stockValue == null ? 'Chưa đủ giá vốn để tính giá trị tồn' : 'Giá trị tồn ước tính ' + M.money(s.stockValue);
   return `${overviewToolbar()}
    <div class="am-stat-grid am-overview-cards">
     ${overviewCard('Doanh thu thực thu',M.money(s.revenue),'wallet','revenue',number.format(s.orderCount)+' hóa đơn bán',true)}
     ${overviewCard('Sản phẩm đã bán',number.format(s.unitsSold)+' <small>sản phẩm</small>','shopping','sold','Xem từng dòng hóa đơn')}
-    ${overviewCard('Số lượng trong cửa hàng',number.format(stock)+' <small>sản phẩm</small>','inventory','stock','Xem số lượng theo sản phẩm')}
+    ${overviewCard('Số lượng trong cửa hàng',number.format(stock)+' <small>sản phẩm</small>','inventory','stock',stockValue)}
    </div>
    <div class="am-dashboard-main">
     <section class="am-panel am-revenue-panel">
@@ -623,7 +615,7 @@ function editProduct(code,onCreated){
  const declared=unique(product.sizes||ERP.sizesFor?.(code?product:chosenCategory)||categorySizes(chosenCategory));
  const historical=code?unique([...(M.data.balances||[]).filter(row=>row.code===code).map(row=>row.size),...(M.data.movements||[]).flatMap(doc=>[...(doc.items||[]),...(doc.returnedItems||[])]).filter(row=>row.code===code).map(row=>row.size)]).filter(size=>size!=='Chưa phân size'||declared.includes(size)):[];
  const existingSizes=unique([...declared,...historical]);
- let selectedSizes=new Set(existingSizes),currentCategory=chosenCategory;
+ let selectedSizes=new Set(declared),currentCategory=chosenCategory;
  const categorySelections=new Map([[chosenCategory,new Set(selectedSizes)]]);
  const choicesFor=category=>unique([...categorySizes(category),...(code?existingSizes:[]),...selectedSizes]);
  const choicesHtml=category=>choicesFor(category).map(size=>`<label class="am-size-choice"><input type="checkbox" name="sizes" value="${e(size)}" data-size-choice ${selectedSizes.has(size)?'checked':''}><span>${e(size)}</span></label>`).join('');
@@ -702,10 +694,12 @@ function showProduct(code){
   (doc.items||[]).some(item=>item.code===code) || (doc.returnedItems||[]).some(item=>item.code===code)
  ).sort((a,b)=>n(b.when)-n(a.when));
  const variants=stock.sizes.filter(row=>row.size!=='Chưa phân size'||row.total);
+ const declared = new Set(ERP.sizesFor(product));
+ const lowSizes = new Set(sizeNeedsReplenishment(product).map(row=>row.size));
  const cards=variants.map(row=>{
   const hasSize=row.size!=='Chưa phân size';
-  const low=hasSize&&product.active!==false&&row.total<=sizeThreshold(product);
-  const label=row.total<=0?'Hết hàng':low?'Sắp hết':'Còn hàng';
+  const low=lowSizes.has(row.size);
+  const label=hasSize&&!declared.has(row.size)?'Ngừng nhập':row.total<=0?'Hết hàng':low?'Sắp hết':'Còn hàng';
   return `<div class="${low?(row.total<=0?'am-size-missing':'am-size-low'):''}"><span>${e(row.size)}</span><strong>${number.format(row.total)}</strong>
    <small>${e(unit)}</small><span class="am-size-status">${label}</span>${hasSize?`<button type="button" class="am-btn ghost small" data-label-code="${e(code)}" data-label-size="${e(row.size)}">In tem QR</button>`:''}</div>`;
  }).join('');
@@ -746,16 +740,17 @@ M.register('inventory',{
   ${overviewCard('Kích cỡ cần bổ sung',number.format(figures.lowSizes.length),'alert','low-sizes','Xem các kích cỡ còn ít hoặc đã hết')}
   ${overviewCard('Sản phẩm hết hàng',number.format(figures.empty.length),'inventory','sold-out','Xem sản phẩm đã hết mọi kích cỡ')}</div>
   <section class="am-panel"><div class="am-panel-head"><div><h2>Danh sách sản phẩm</h2><p id="am-inventory-count">${number.format(filteredProducts().length)} sản phẩm</p></div>
+  </div>
+  <div class="am-toolbar am-filterbar">
+  <label class="am-search">${M.icon('search')}<input type="search" id="am-stock-search" value="${e(inventoryFilters.search)}" placeholder="Tìm mã hoặc tên sản phẩm…" aria-label="Tìm sản phẩm"></label>
+  <select id="am-stock-category" aria-label="Danh mục sản phẩm"><option value="">Tất cả danh mục</option>${cats.map(cat=>`<option value="${e(cat)}" ${inventoryFilters.category===cat?'selected':''}>${e(cat)}</option>`).join('')}</select>
   <button type="button" class="am-btn secondary" id="am-stock-export">Xuất Excel</button></div>
-  <div class="am-toolbar am-filterbar"><label class="am-search">${M.icon('search')}<input type="search" id="am-stock-search" value="${e(inventoryFilters.search)}" placeholder="Tìm mã hoặc tên sản phẩm…" aria-label="Tìm sản phẩm"></label>
-  <select id="am-stock-category" aria-label="Danh mục sản phẩm"><option value="">Tất cả danh mục</option>${cats.map(cat=>`<option value="${e(cat)}" ${inventoryFilters.category===cat?'selected':''}>${e(cat)}</option>`).join('')}</select></div>
   <div class="am-table-wrap" id="am-inventory-results">${inventoryRows()}</div></section>`;
 },
  bind(root){
  root.querySelectorAll('[data-overview-view]').forEach(button=>button.addEventListener('click',()=>showInventoryFigure(button.dataset.overviewView,inventoryFigures())));
  const input=root.querySelector('#am-stock-search');
  input.addEventListener('input',()=>{inventoryFilters.search=input.value;updateInventoryRows(root);});
- Search.attach(input,{items:()=>filteredProducts().map(product=>({value:product.code,label:product.name,detail:`${product.code} · ${product.category}`,searchText:[product.name,product.code,product.category]})),onSelect:item=>showProduct(item.value)});
  root.querySelector('#am-stock-category').addEventListener('change',event=>{inventoryFilters.category=event.target.value;updateInventoryRows(root);});
  root.querySelector('#am-stock-export').addEventListener('click',event=>{
   const sheets=Reports.inventorySheets(M.data,filteredProducts());
@@ -772,7 +767,7 @@ function supplierRows(){
  const complete=docs.filter(doc=>!pendingReceipt(doc));
  return `<table class="am-table"><thead><tr><th>Nhà cung cấp duy nhất</th><th>Liên hệ</th><th class="am-right">Phiếu nhập</th><th class="am-right">Giá trị nhập đã ghi nhận</th><th></th></tr></thead>
  <tbody><tr><td><button class="am-text-btn" type="button" data-supplier-view="${e(supplier.id)}"><strong>${e(supplier.name)}</strong><small>${e(supplier.id)}</small></button></td>
- <td>${e(supplier.phone||'0359638789')}<small class="am-unit">${e(supplier.email||'Chưa cập nhật email')}</small></td>
+ <td>${e(supplier.phone||'Chưa cập nhật số điện thoại')}<small class="am-unit">${e(supplier.email||'Chưa cập nhật email')}</small></td>
  <td class="am-right">${number.format(docs.length)}</td><td class="am-right am-nowrap"><strong>${M.money(complete.reduce((sum,doc)=>sum+receiptValue(doc),0))}</strong>${docs.some(pendingReceipt)?`<small class="am-quantity-note">${number.format(docs.filter(pendingReceipt).length)} phiếu chờ giá nhập</small>`:''}</td>
  <td><button type="button" class="am-btn secondary small" data-supplier-edit="${e(supplier.id)}">Cập nhật liên hệ</button></td></tr></tbody></table>`;
 }
@@ -810,7 +805,7 @@ function showSupplierReceipt(id){
   const sizeCount=new Set(group.items.map(item=>item.size||'Chưa phân size')).size;
   return `<details class="am-receipt-product-card"><summary><span class="am-receipt-product-name"><strong>${e(group.name)}</strong><small>${e(group.code)}</small></span><span class="am-receipt-product-count">${number.format(sizeCount)} kích cỡ · ${number.format(qty)} sản phẩm</span><span class="am-receipt-product-toggle" aria-hidden="true">⌄</span></summary><div class="am-table-wrap"><table class="am-table"><thead><tr><th>Kích cỡ</th><th class="am-right">Số lượng</th><th class="am-right">Giá nhập</th><th class="am-right">Thành tiền</th></tr></thead><tbody>${variants}</tbody></table></div></details>`;
  }).join('');
- M.dialog({title:'Chi tiết phiếu nhập · '+doc.id,wide:true,body:`<dl class="am-kv"><div><dt>Nhà cung cấp</dt><dd>${e(supplier?.name||'Kho tổng — Công ty TNHH Thời Trang Minh AM')}</dd></div><div><dt>Điện thoại liên hệ</dt><dd>${e(supplier?.phone||'0359638789')}</dd></div><div><dt>Ngày nhận</dt><dd>${M.date(doc.when)}</dd></div><div><dt>Nhân viên xác nhận</dt><dd>${e(doc.employeeName||'Chưa ghi nhận')}</dd></div><div><dt>Tổng số lượng</dt><dd>${number.format(items.reduce((sum,item)=>sum+n(item.qty),0))}</dd></div><div><dt>Tổng giá trị nhập</dt><dd><strong>${pendingReceipt(doc)?'Chờ bổ sung giá nhập':M.money(receiptValue(doc))}</strong></dd></div></dl><h3 class="am-subheading">Mặt hàng trong phiếu</h3><div class="am-receipt-product-list">${productCards||M.empty('Phiếu nhập chưa có mặt hàng')}</div>${doc.note?`<p class="am-note">${e(doc.note)}</p>`:''}`});
+ M.dialog({title:'Chi tiết phiếu nhập · '+doc.id,wide:true,body:`<dl class="am-kv"><div><dt>Nhà cung cấp</dt><dd>${e(supplier?.name||'Kho tổng — Công ty TNHH Thời Trang Minh AM')}</dd></div><div><dt>Điện thoại liên hệ</dt><dd>${e(supplier?.phone||'Chưa cập nhật số điện thoại')}</dd></div><div><dt>Ngày nhận</dt><dd>${M.date(doc.when)}</dd></div><div><dt>Nhân viên xác nhận</dt><dd>${e(doc.employeeName||'Chưa ghi nhận')}</dd></div><div><dt>Tổng số lượng</dt><dd>${number.format(items.reduce((sum,item)=>sum+n(item.qty),0))}</dd></div><div><dt>Tổng giá trị nhập</dt><dd><strong>${pendingReceipt(doc)?'Chờ bổ sung giá nhập':M.money(receiptValue(doc))}</strong></dd></div></dl><h3 class="am-subheading">Mặt hàng trong phiếu</h3><div class="am-receipt-product-list">${productCards||M.empty('Phiếu nhập chưa có mặt hàng')}</div>${doc.note?`<p class="am-note">${e(doc.note)}</p>`:''}`});
 }
 M.register('suppliers',{
  title:'Nhà cung cấp',kicker:'KHO TỔNG · MINH AM',
@@ -862,18 +857,11 @@ M.register('audit',{
   });
   const scopedRows=()=>(M.data.audit||[]).filter(row=>(!kind.value||auditKinds[kind.value].includes(row.action))&&(!day.value||ERP.today(row.when)===day.value));
   const searchText=row=>[row.employeeId,row.employeeName,row.action,row.reference,row.detail,auditTime.format(row.when)];
-  let selectedRow=null;
-  Search.attach(query,{items:()=>scopedRows().map(row=>({
-   label:[row.employeeName,row.action].filter(Boolean).join(' · '),
-   value:row.reference||row.employeeId||row.action,
-   detail:[row.reference,row.employeeId,auditTime.format(row.when),row.detail].filter(Boolean).join(' · '),
-   row,searchText:searchText(row)
-  })),onSelect:item=>{selectedRow=item.row;draw();}});
   const draw=()=>{
-   const rows=scopedRows().filter(row=>(!selectedRow||selectedRow===row)&&Search.match(searchText(row),query.value));
+   const rows=scopedRows().filter(row=>Search.match(searchText(row),query.value));
    results.innerHTML=rows.length?`<div class="am-table-wrap"><table class="am-table"><thead><tr><th>Thời điểm</th><th>Người thực hiện</th><th>Thao tác</th><th>Mã tham chiếu</th></tr></thead><tbody>${rows.map(row=>`<tr><td>${e(auditTime.format(row.when))}</td><td><button class="am-text-btn" type="button" data-audit-person="${e(row.employeeId)}">${e(row.employeeName)}</button><small class="am-unit">${e(row.employeeId)}</small></td><td>${e(row.action)}${row.detail?`<small class="am-unit">${e(row.detail)}</small>`:''}</td><td>${(documents.has(row.reference)||returnIds.has(row.reference))?`<button class="am-text-btn" type="button" data-audit-document="${e(row.reference)}">${e(row.reference)}</button>`:e(row.reference)}</td></tr>`).join('')}</tbody></table></div>`:M.empty('Chưa có thao tác phù hợp');
   };
-  query.addEventListener('input',()=>{selectedRow=null;draw();});
+  query.addEventListener('input',draw);
   day.addEventListener('change',()=>{
    dayDisplay.textContent=day.value?day.value.split('-').reverse().join('/'):'dd/mm/yyyy';
    draw();

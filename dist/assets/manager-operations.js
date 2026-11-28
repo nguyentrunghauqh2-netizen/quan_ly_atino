@@ -46,10 +46,13 @@
   function available(code, size) {
     return M.data.stock.byProduct.get(code)?.sizes.find(row => row.size === size)?.total ?? 0;
   }
-  function sizesFor(code) {
-    return [...new Set([...(ERP.sizesFor?.(product(code)) || standardSizes), ...(M.data.balances || []).filter(row => row.code === code).map(row => row.size || 'Chưa phân size')])];
+  function sizesFor(code, kind) {
+    const declared = ERP.sizesFor?.(product(code)) || standardSizes;
+    if (kind === 'receipt') return declared;
+    return [...new Set([...declared, ...(M.data.balances || []).filter(row => row.code === code).map(row => row.size || 'Chưa phân size')])];
   }
   function status(doc) {
+    if (ERP.isVoidedSale(doc)) return M.badge('Đã hủy', 'neutral');
     if (doc.type === 'receipt') return M.badge('Nhập kho', 'green');
     if (doc.type === 'dispatch') return M.badge('Xuất kho', 'amber');
     return M.badge(ERP.transactionStatus(doc), doc.type === 'exchange' ? 'blue' : 'green');
@@ -152,6 +155,7 @@
     const host = form.querySelector('[data-line-editor="' + id + '"]');
     const body = host.querySelector('[data-line-body]');
     let products = activeProducts(kind);
+    const removedLines=[];
     let sequence = 0;
     function read() {
       return [...body.querySelectorAll('[data-line-row]')].map(row => {
@@ -175,20 +179,29 @@
       }
       host.querySelector('[data-line-summary]').textContent = count + ' sản phẩm' + (kind === 'dispatch' ? '' : ' · ' + M.money(total));
     }
+    function removedRow(item,reason,undo) {
+      const row=document.createElement('tr');
+      row.className='op-removed-item';
+      row.innerHTML='<td><del>'+E(productName(item))+'</del><br><small>Lý do: '+E(reason)+'</small></td><td>'+E(item.size||'Chưa phân size')+'</td><td>'+item.qty+'</td><td>'+M.money(item.unitPrice)+'</td><td>—</td><td>'+(undo?'<button type="button" class="am-btn secondary small">Hoàn tác</button>':'Đã xóa')+'</td>';
+      if(undo)row.querySelector('button').onclick=undo;
+      return row;
+    }
     function add(initial) {
-      const p = products.find(row => row.code === (initial || {}).code);
+      const original=invoice&&initial;
+      const p = original || products.find(row => row.code === (initial || {}).code);
       const code = p ? p.code : '';
-      const options = code ? sizesFor(code) : [];
+      const options = original ? [initial.size||'Chưa phân size'] : code ? sizesFor(code, kind) : [];
       const selectedSize = initial && initial.size ? initial.size : (kind === 'receipt' ? options[0] : options.find(size => available(code, size) > 0) || options[0]);
       const row = document.createElement('tr');
       row.dataset.lineRow = String(++sequence);
-      row.innerHTML = '<td><select class="op-product-select" required data-line-code aria-label="Sản phẩm">' + option('', products.length ? 'Chọn sản phẩm' : 'Chưa có sản phẩm', code) + products.map(p => option(p.code, p.code + ' · ' + p.name + (p.active === false ? ' · Ngừng bán' : ''), code)).join('') + '</select><span class="am-muted op-line-stock" data-line-stock></span></td>' +
-        '<td><select required data-line-size aria-label="Size"' + (code ? '' : ' disabled') + '>' + (options.length ? options.map(size => option(size, size, selectedSize)).join('') : option('', 'Chọn size', '')) + '</select></td>' +
+      const productOptions=original ? option(code,code+' · '+productName(original),code) : option('', products.length ? 'Chọn sản phẩm' : 'Chưa có sản phẩm', code) + products.map(p => option(p.code, p.code + ' · ' + p.name + (p.active === false ? ' · Ngừng bán' : ''), code)).join('');
+      row.innerHTML = '<td>'+(kind==='sale'&&!original?'<input type="search" class="am-field" data-line-search placeholder="Tìm tên, mã, loại hàng" aria-label="Tìm sản phẩm">':'')+'<select class="op-product-select" required data-line-code aria-label="Sản phẩm"'+(original?' disabled':'')+'>' + productOptions + '</select><span class="am-muted op-line-stock" data-line-stock></span></td>' +
+        '<td><select required data-line-size aria-label="Size"' + (code && !original ? '' : ' disabled') + '>' + (options.length ? options.map(size => option(size, size, selectedSize)).join('') : option('', 'Chọn size', '')) + '</select></td>' +
         '<td><input data-line-qty type="number" min="1" step="1" max="100000" required value="' + E(initial && initial.qty || '') + '" aria-label="Số lượng"></td>' +
         '<td>' + (kind === 'receipt' ? '<input data-line-price data-money class="op-unit-price" inputmode="numeric" min="1" max="1000000000" required placeholder="Nhập giá" value="' + Money.format(initial?.unitPrice) + '" aria-label="Giá nhập một đơn vị">' : '<span data-line-price-text></span>') + '</td>' +
         '<td class="op-line-total" data-line-total></td><td><button type="button" class="am-btn ghost small" data-line-remove aria-label="Xóa dòng sản phẩm" title="Xóa dòng">×</button></td>';
       body.appendChild(row);
-      Search.productPicker(row.querySelector('[data-line-code]'));
+      if(original)row.dataset.originalLine=String(invoice.items.indexOf(original));
       update();
       if (changed) changed();
     }
@@ -211,8 +224,29 @@
     body.addEventListener('click', event => {
       const button = event.target.closest('[data-line-remove]');
       if (!button) return;
-      if (body.children.length === 1) { M.toast('Phiếu cần ít nhất một dòng sản phẩm.'); return; }
-      button.closest('[data-line-row]').remove();
+      const row=button.closest('[data-line-row]');
+      const item=invoice?.items[row.dataset.originalLine];
+      if(item){
+        M.dialog({title:'Xóa mặt hàng khỏi hóa đơn',submitLabel:'Xác nhận xóa',body:
+          '<p>'+E(productName(item))+' · '+E(item.size||'Chưa phân size')+'</p>' +
+          field('Lý do xóa','<textarea name="reason" rows="3" maxlength="300" required></textarea>'),
+          onOpen(dialogForm){dialogForm.elements.reason.focus();},
+          onSubmit(dialogForm){
+            const reason=dialogForm.elements.reason.value.trim();
+            if(!reason)throw new Error('Nhập lý do xóa mặt hàng.');
+            const removal={code:item.code,size:item.size||'Chưa phân size',reason};
+            removedLines.push(removal);
+            const removed=removedRow(item,reason,()=>{
+              removedLines.splice(removedLines.indexOf(removal),1);
+              removed.replaceWith(row);update();changed();
+            });
+            row.replaceWith(removed);update();changed();
+          }
+        });
+        return;
+      }
+      if (!invoice && body.children.length === 1) { M.toast('Phiếu cần ít nhất một dòng sản phẩm.'); return; }
+      row.remove();
       update();
       if (changed) changed();
     });
@@ -220,7 +254,7 @@
       if (event.target.matches('[data-line-code]')) {
         const row = event.target.closest('[data-line-row]');
         const code = event.target.value;
-        const options = code ? sizesFor(code) : [];
+        const options = code ? sizesFor(code, kind) : [];
         const selected = kind === 'receipt' ? options[0] : options.find(size => available(code, size) > 0) || options[0];
         row.querySelector('[data-line-size]').innerHTML = options.length ? options.map(size => option(size, size, selected)).join('') : option('', 'Chọn size', '');
         row.querySelector('[data-line-size]').disabled = !code;
@@ -230,10 +264,20 @@
       if (changed) changed();
     });
     body.addEventListener('input', event => {
+      if(event.target.matches('[data-line-search]')){
+        const select=event.target.closest('[data-line-row]').querySelector('[data-line-code]');
+        const current=select.value;
+        const matches=products.filter(p=>p.code===current||Search.match([p.code,p.name,p.category],event.target.value));
+        select.innerHTML=option('',matches.length?'Chọn sản phẩm':'Không tìm thấy sản phẩm',current)+matches.map(p=>option(p.code,p.code+' · '+p.name,current)).join('');
+        return;
+      }
       update(); if (changed) changed();
     });
-    if(invoice) invoice.items.forEach(add); else add();
-    return { read };
+    if(invoice){
+      invoice.items.forEach(add);
+      for(const item of invoice.removedItems||[])body.appendChild(removedRow(item,item.reason));
+    }else add();
+    return { read, removedLines };
   }
 
   function documentItems(items, paid, highlightCode = '') {
@@ -436,9 +480,6 @@
         form.querySelector('tbody').innerHTML=rows.map(([code,p])=>'<tr><td><button class="am-text-btn" type="button" data-import-code="'+E(code)+'">'+E(p.name)+'<small>'+E(code)+'</small></button></td><td class="am-right">'+p.qty+'</td></tr>').join('')||'<tr><td colspan="2">Không tìm thấy sản phẩm.</td></tr>';
       }
       const openProduct=code=>receiptBreakdown(products.get(code).name,docs.filter(doc=>doc.items.some(i=>i.code===code)),code,kind);
-      Search.attach(input,{items:()=>Array.from(products,([code,p])=>({
-        value:code,label:p.name,detail:code+' · '+p.qty+' sản phẩm',searchText:[code,p.name]
-      })),onSelect:item=>openProduct(item.value)});
       input.oninput=draw;draw();
       form.addEventListener('click',event=>{
         const button=event.target.closest('[data-import-code]');if(!button)return;
@@ -551,8 +592,7 @@
         return styles + '<div class="op-summary" data-op-stock-totals>' + stockTotals(kind) + '</div>' +
           '<section class="am-panel"><div class="am-panel-head"><div><h2 data-op-stock-heading>' + stockHeading(kind) + '</h2></div><div class="am-actions">' +
           (receipt ? '<button type="button" class="am-btn secondary" data-op-models>Sản phẩm</button>' : '') + '<button type="button" class="am-btn" data-op-stock-new="' + kind + '">+ ' + (receipt ? 'Nhập kho' : 'Xuất kho') + '</button></div></div>' +
-          '<div class="am-toolbar am-filterbar"><label class="am-search">' + M.icon('search') + '<input type="search" aria-label="' + stockSearchLabel(kind) + '" data-op-stock-search placeholder="' + (receipt ? 'Tìm phiếu, sản phẩm, nhà cung cấp…' : 'Tìm phiếu, sản phẩm, nơi nhận…') + '" value="' + E(state.search) + '"></label>' +
-          stockDateField('Từ ngày','from',state.from) + stockDateField('Đến ngày','to',state.to) +
+          '<div class="am-toolbar am-filterbar">' + '<label class="am-search">' + M.icon('search') + '<input type="search" aria-label="' + stockSearchLabel(kind) + '" data-op-stock-search placeholder="' + (receipt ? 'Tìm phiếu, sản phẩm, nhà cung cấp…' : 'Tìm phiếu, sản phẩm, nơi nhận…') + '" value="' + E(state.search) + '"></label>' + stockDateField('Từ ngày','from',state.from) + stockDateField('Đến ngày','to',state.to) +
           '<button type="button" class="am-btn secondary small" data-op-stock-excel' + (stockDatesInvalid(kind) ? ' disabled' : '') + '>Xuất Excel</button></div><div data-op-stock-table>' + stockTable(kind) + '</div></section>';
       },
       bind(root) {
@@ -567,11 +607,6 @@
             if (input.type==='date') input.previousElementSibling.textContent=input.value ? input.value.split('-').reverse().join('/') : 'dd/mm/yyyy';
             redraw(); });
         }
-        Search.attach(root.querySelector('[data-op-stock-search]'), {items: () => stockDocs(kind).map(doc => ({
-          value: doc.id, label: doc.id,
-          detail: [doc.type === 'receipt' ? 'Nhập kho' : 'Xuất kho', (supplier(doc.supplierId) || {}).name || doc.supplierName || doc.destination, itemNames(doc.items)].filter(Boolean).join(' · '),
-          searchText: stockSearchText(doc)
-        })),onSelect:item=>showStockDetails(item.value)});
         root.addEventListener('click', event => {
           const figure=event.target.closest('[data-figure-view]');
           if(figure) return openReceiptFigure(figure.dataset.figureView,kind);
@@ -645,7 +680,7 @@
       lineEditorHtml('sale', 'sale', 'Sản phẩm bán') + '<section class="op-review" data-sale-review hidden aria-live="polite"></section>',
       onOpen(form) {
         currentForm = form;
-        window.AtinoCheckout.bindBuyer(form,()=>customers);
+        window.AtinoCheckout.bindBuyer(form,customers);
         editor = setupLines(form, 'sale', 'sale', invalidate);
         form.addEventListener('change', event => {
           if (event.target.matches('[data-payment-input]')) return;
@@ -695,29 +730,38 @@
     popup.print();
   }
   function editInvoice(doc) {
+    if(ERP.isVoidedSale(doc))return M.toast('Hóa đơn đã hủy toàn bộ mặt hàng.');
     let editor;
-    const optionList=(rows,idKey,current)=>rows.filter(r=>r.active!==false).map(r=>option(r[idKey],r.name,current)).join('');
-    const discount=Math.max(0,rawTotal(doc)-paidTotal(doc));
-    const total=form=>{
-      const gross=editor.read().reduce((sum,i)=>sum+i.qty*num(invoiceUnitPrice(doc,i.code,i.size)),0);
+    const optionList=(rows,idKey,current)=>rows.filter(r=>r.active!==false||r[idKey]===current).map(r=>option(r[idKey],r.name,current)).join('');
+    const total=(form,lines)=>{
+      const items=lines.map(item=>({...item,lineTotal:item.qty*num(invoiceUnitPrice(doc,item.code,item.size))}));
+      const gross=items.reduce((sum,item)=>sum+item.lineTotal,0);
       const customer=M.data.customers.find(c=>c.id===form.elements.customerId.value);
-      return gross-(doc.birthdayPricing ? ERP.birthdayReduction(M.data.movements,customer,gross,ERP.today(doc.when),doc.id) : discount);
+      return gross-ERP.editedSaleDiscount(doc,items,M.data.movements,customer);
     };
     M.dialog({title:'Sửa hóa đơn '+doc.id,wide:true,submitLabel:'Lưu hóa đơn',body:
       '<div class="am-form-grid">'+field('Khách hàng','<select name="customerId">'+option('','Khách lẻ',doc.customerId)+optionList(M.data.customers,'id',doc.customerId)+'</select>')+
       field('Người bán','<select name="sellerId">'+optionList(M.data.staff,'code',doc.sellerId||doc.employeeId)+'</select>')+
       field('Thanh toán','<select name="method">'+['Tiền mặt','Chuyển khoản'].map(m=>option(m,m,ERP.paymentMethod(doc))).join('')+'</select>')+
-      '<label data-cash>Tiền khách đưa (đ)<input name="cash" data-money inputmode="numeric" min="0" max="100000000000000" value="'+Money.format(doc.cashReceived??paidTotal(doc))+'"></label><label data-bank><input type="checkbox" name="confirmed"> Đã nhận đủ chuyển khoản</label></div>'+
+      '<label class="am-field" data-cash>Tiền khách đưa (đ)<input name="cash" data-money inputmode="numeric" min="0" max="100000000000000" required value="'+Money.format(doc.cashReceived??paidTotal(doc))+'"></label><label data-bank><input type="checkbox" name="confirmed"> Đã nhận đủ chuyển khoản</label></div>'+
       lineEditorHtml('edit-sale','sale','Hàng đã bán')+'<p data-edit-total></p>',
       onOpen(form){
-        function refresh(){if(editor)form.querySelector('[data-edit-total]').textContent='Thực thu sau chỉnh sửa: '+M.money(total(form));}
+        function refresh(){
+          if(!editor)return;
+          const lines=editor.read(), amount=total(form,lines), hasItems=lines.length>0;
+          const cash=hasItems&&form.elements.method.value==='Tiền mặt';
+          form.querySelector('[data-cash]').hidden=!cash;
+          form.elements.cash.disabled=!cash;
+          form.querySelector('[data-bank]').hidden=!hasItems||cash;
+          form.querySelector('[data-edit-total]').textContent='Thực thu sau chỉnh sửa: '+M.money(amount)+(hasItems?'':' · Hóa đơn sẽ được đánh dấu đã hủy khi lưu.');
+        }
         editor=setupLines(form,'edit-sale','sale',refresh,doc);
-        function sync(){const cash=form.elements.method.value==='Tiền mặt';form.querySelector('[data-cash]').hidden=!cash;form.elements.cash.disabled=!cash;form.querySelector('[data-bank]').hidden=cash;}
-        form.elements.customerId.onchange=refresh;form.elements.method.onchange=sync;sync();refresh();
+        form.elements.customerId.onchange=refresh;form.elements.method.onchange=refresh;refresh();
       },
       async onSubmit(form){
         const cash=form.elements.cash;
-        await ERP.editSale({id:doc.id,revision:doc.editRevision||0,lines:editor.read(),expectedTotal:total(form),customerId:form.elements.customerId.value,sellerId:form.elements.sellerId.value,method:form.elements.method.value,cashReceived:cash.value?Money.read(cash):'',transferConfirmed:form.elements.confirmed.checked});
+        const lines=editor.read();
+        await ERP.editSale({id:doc.id,revision:doc.editRevision||0,lines,removedLines:editor.removedLines,expectedTotal:total(form,lines),customerId:form.elements.customerId.value,sellerId:form.elements.sellerId.value,method:form.elements.method.value,cashReceived:cash.value?Money.read(cash):'',transferConfirmed:form.elements.confirmed.checked});
         await M.refresh();M.toast('Đã cập nhật hóa đơn '+doc.id);showInvoice(doc.id);
       }
     });
@@ -729,10 +773,10 @@
     const exchangeLinks = '<p>Phiếu đổi trả liên quan</p>' +
       linked.map(id => '<button type="button" class="am-btn secondary small" data-linked-return="' + E(id) + '">' + E(id) + '</button>').join(' ');
     M.dialog({ title: (doc.type === 'exchange' ? 'Phiếu đổi hàng ' : 'Hóa đơn ') + doc.id, wide: true, body:
-      styles + (doc.type === 'sale' && window.AtinoDocuments ? '<div class="op-receipt-paper">' + window.AtinoDocuments.saleReceiptHtml(doc, {staff: M.data.staff, customers: M.data.customers}) + '</div>' : '') + '<div class="op-invoice-meta">' + kv('Ngày lập', dateText(doc.when)) + kv('Khách hàng', [invoiceCustomer(doc),customer(doc.customerId)?.phone,doc.customerId].filter(Boolean).join(' · ')) + documentPeopleHtml(doc) + kv('Thanh toán', methodText(doc)) + (doc.exchangeOf ? sourceInvoice(doc.exchangeOf) : '') + '</div>' + (doc.type === 'exchange' ? '<h3>Hàng khách trả</h3>' + documentItems(doc.returnedItems || [], true, highlightCode) + '<h3>Hàng giao khách</h3>' : '') + (doc.type === 'sale' && window.AtinoDocuments ? '' : documentItems(paidItems(doc), true, highlightCode)) +
+      styles + (doc.type === 'sale' && window.AtinoDocuments ? '<div class="op-receipt-paper">' + window.AtinoDocuments.saleReceiptHtml(doc, {staff: M.data.staff, customers: M.data.customers, showRemovalReasons:true}) + '</div>' : '') + '<div class="op-invoice-meta">' + kv('Ngày lập', dateText(doc.when)) + kv('Khách hàng', [invoiceCustomer(doc),customer(doc.customerId)?.phone,doc.customerId].filter(Boolean).join(' · ')) + documentPeopleHtml(doc) + kv('Thanh toán', methodText(doc)) + (doc.exchangeOf ? sourceInvoice(doc.exchangeOf) : '') + '</div>' + (doc.type === 'exchange' ? '<h3>Hàng khách trả</h3>' + documentItems(doc.returnedItems || [], true, highlightCode) + '<h3>Hàng giao khách</h3>' : '') + (doc.type === 'sale' && window.AtinoDocuments ? '' : documentItems(paidItems(doc), true, highlightCode)) +
       (doc.type === 'sale' && window.AtinoDocuments ? '' : '<div class="op-exchange-totals">' + (doc.type === 'exchange' ? kv('Giá trị hàng mới', M.money(doc.replacementTotal == null ? rawTotal(doc) : doc.replacementTotal)) + kv('Giá trị hàng đổi', M.money(doc.credit)) : '') + '<div class="am-kv op-grand-total"><span>' + (doc.type === 'exchange' ? 'Chênh lệch đã thu' : 'Đã thanh toán') + '</span><strong>' + M.money(paidTotal(doc)) + '</strong></div></div>' +
       (doc.cashReceived != null ? '<p class="op-help">Tiền khách đưa: ' + M.money(doc.cashReceived) + ' · Tiền trả lại: ' + M.money(Math.max(0, num(doc.cashReceived) - paidTotal(doc))) + '</p>' : '')) +
-      (doc.type==='sale'?(linked.length?exchangeLinks:'')+'<button type="button" class="am-btn" data-edit-sale>Sửa hóa đơn</button>':'') + '<button type="button" class="am-btn secondary" data-doc-excel>Xuất Excel</button><button type="button" class="am-btn secondary op-print-btn" data-op-print-invoice>' + (doc.type === 'exchange' ? 'In phiếu đổi hàng' : 'In hóa đơn') + '</button>',
+      (doc.type==='sale'&&!ERP.isVoidedSale(doc)?(linked.length?exchangeLinks:'')+'<button type="button" class="am-btn" data-edit-sale>Sửa hóa đơn</button>':'') + '<button type="button" class="am-btn secondary" data-doc-excel>Xuất Excel</button><button type="button" class="am-btn secondary op-print-btn" data-op-print-invoice>' + (doc.type === 'exchange' ? 'In phiếu đổi hàng' : 'In hóa đơn') + '</button>',
       onOpen(form) {
         for (const button of form.querySelectorAll('[data-linked-return]')) {
           button.onclick = () => {
@@ -761,7 +805,7 @@
 
   function salesSearchText(doc) {
     const c = customer(doc.customerId);
-    return [doc.id, doc.customerId, doc.sellerId, doc.cashierId, doc.sellerName, doc.cashierName, doc.employeeName, invoiceCustomer(doc), c?.name, c?.phone, ...itemSearchText(doc.items)];
+    return [doc.id, doc.customerId, doc.sellerId, doc.cashierId, doc.sellerName, doc.cashierName, doc.employeeName, invoiceCustomer(doc), c?.name, c?.phone, ...itemSearchText(doc.items), ...itemSearchText(doc.removedItems)];
   }
   const salesDatesInvalid = () => salesState.period === 'custom' && salesState.from && salesState.to && salesState.from > salesState.to;
   function salesDocs() {
@@ -842,19 +886,25 @@
     const docs = salesDocs();
     const rows=profitRows(),missing=rows.filter(row=>row.profit==null).length;
     const profit=stat('Lợi nhuận gộp',missing?'Chưa đủ giá vốn':M.money(sum(rows,row=>row.profit)),missing?missing+' chứng từ thiếu giá vốn':'Doanh thu trừ giá vốn','profit');
-    return stat('Doanh thu trong bộ lọc', M.money(sum(docs, paidTotal)), '', 'all') + profit + stat('Hóa đơn bán hàng', docs.filter(doc => doc.type === 'sale').length, 'Đã thanh toán','sale') + stat('Giao dịch đổi hàng', docs.filter(doc => doc.type === 'exchange').length, '', 'exchange');
+    return stat('Doanh thu trong bộ lọc', M.money(sum(docs, paidTotal)), '', 'all') + profit + stat('Hóa đơn bán hàng', docs.filter(doc => doc.type === 'sale'&&!ERP.isVoidedSale(doc)).length, 'Đã thanh toán','sale') + stat('Giao dịch đổi hàng', docs.filter(doc => doc.type === 'exchange').length, '', 'exchange');
   }
   function salesTable() {
     const docs = salesDocs();
     if (!docs.length) return M.empty('Chưa có hóa đơn trong kỳ này');
     return '<p class="op-result-count">' + docs.length + ' giao dịch phù hợp</p><div class="am-table-wrap"><table class="am-table"><thead><tr><th>Hóa đơn</th><th>Khách hàng</th><th>Thực thu</th><th>Thanh toán</th><th>Tình trạng</th><th></th></tr></thead><tbody>' + docs.map(doc => {
-      return '<tr><td><div class="op-doc-title">' + M.invoiceLink(doc.id) + '<span class="am-muted">' + E(dateText(doc.when)) + '</span></div></td><td>' + E(invoiceCustomer(doc)) + '</td><td><strong>' + M.money(paidTotal(doc)) + '</strong></td><td>' + E(methodText(doc)) + '</td><td>' + status(doc) + '</td><td><button type="button" class="am-btn secondary small" data-op-sale-detail="' + E(doc.id) + '">Xem hóa đơn</button>' + (doc.type==='sale' || doc.exchangeOf ? ' <button type="button" class="am-btn secondary small" data-op-edit-invoice="'+E(doc.type==='sale'?doc.id:doc.exchangeOf)+'">'+(doc.type==='sale'?'Sửa hóa đơn':'Sửa hóa đơn gốc')+'</button>' : '') + '</td></tr>';
+      return '<tr><td><div class="op-doc-title">' + M.invoiceLink(doc.id) + '<span class="am-muted">' + E(dateText(doc.when)) + '</span></div></td><td>' + E(invoiceCustomer(doc)) + '</td><td><strong>' + M.money(paidTotal(doc)) + '</strong></td><td>' + E(methodText(doc)) + '</td><td>' + status(doc) + '</td><td><button type="button" class="am-btn secondary small" data-op-sale-detail="' + E(doc.id) + '">Xem hóa đơn</button>' + ((doc.type==='sale' && !ERP.isVoidedSale(doc)) || doc.exchangeOf ? ' <button type="button" class="am-btn secondary small" data-op-edit-invoice="'+E(doc.type==='sale'?doc.id:doc.exchangeOf)+'">'+(doc.type==='sale'?'Sửa hóa đơn':'Sửa hóa đơn gốc')+'</button>' : '') + '</td></tr>';
     }).join('') + '</tbody></table></div>';
   }
   function salesPeriodControl() {
-    if (salesState.period === 'all') return '';
-    if (salesState.period === 'custom') return field('Từ ngày', '<input type="date" data-op-sales-from value="' + E(salesState.from) + '">') + field('Đến ngày', '<input type="date" data-op-sales-to value="' + E(salesState.to) + '">');
-    return field(salesState.period === 'day' ? 'Ngày' : salesState.period === 'month' ? 'Tháng' : 'Năm', '<input data-op-sales-value type="' + (salesState.period === 'year' ? 'number' : salesState.period === 'month' ? 'month' : 'date') + '"' + (salesState.period === 'year' ? ' min="2000" max="2200" step="1"' : '') + ' value="' + E(salesState.value) + '">');
+    const {period,value,from,to}=salesState;
+    if (period === 'all') return '';
+    if (period === 'custom') return salesDateField('Từ ngày','from',from) + salesDateField('Đến ngày','to',to);
+    if (period === 'year') return field('Năm','<input type="number" data-op-sales-value min="2000" max="2200" step="1" value="'+E(value)+'">');
+    return salesDateField(period === 'month' ? 'Tháng' : 'Ngày','value',value,period === 'month' ? 'month' : 'date');
+  }
+  function salesDateField(label,key,value,type='date') {
+    const input='<input type="'+type+'" data-op-sales-'+key+' value="'+E(value)+'">';
+    return field(label,M.dateInput(input,value,type));
   }
   function filteredSalesSheets() {
     const {period, value, from, to, search} = salesState;
@@ -869,8 +919,10 @@
     title: 'Hóa đơn & doanh thu', kicker: 'GIAO DỊCH BÁN HÀNG',
     render() {
       return styles + '<div class="op-summary" data-op-sales-totals>' + salesTotals() + '</div><section class="am-panel"><div class="am-panel-head"><div><h2>Hóa đơn và khoản thu</h2></div><button type="button" class="am-btn" data-op-sale-new>+ Tạo hóa đơn</button></div>' +
-        '<div class="am-toolbar am-filterbar">' + field('Khoảng thời gian', '<select data-op-sales-period>' + [['day', 'Theo ngày'], ['month', 'Theo tháng'], ['year', 'Theo năm'], ['custom', 'Khoảng ngày'], ['all', 'Toàn bộ']].map(row => option(row[0], row[1], salesState.period)).join('') + '</select>') + salesPeriodControl() +
-        '<label class="am-search">' + M.icon('search') + '<input type="search" aria-label="Tìm hóa đơn" data-op-sales-search value="' + E(salesState.search) + '" placeholder="Tìm hóa đơn, khách hàng, sản phẩm…"></label><div class="am-actions"> <button type="button" class="am-btn secondary small" data-op-sales-excel>Xuất Excel</button></div></div><div data-op-sales-table>' + salesTable() + '</div></section>';
+        '<div class="am-toolbar am-filterbar">' +
+        '<label class="am-search">' + M.icon('search') + '<input type="search" aria-label="Tìm hóa đơn" data-op-sales-search value="' + E(salesState.search) + '" placeholder="Tìm hóa đơn, khách hàng, sản phẩm…"></label>' +
+        field('Khoảng thời gian', '<select data-op-sales-period>' + [['day', 'Theo ngày'], ['month', 'Theo tháng'], ['year', 'Theo năm'], ['custom', 'Khoảng ngày'], ['all', 'Toàn bộ']].map(row => option(row[0], row[1], salesState.period)).join('') + '</select>') + salesPeriodControl() +
+        '<button type="button" class="am-btn secondary small" data-op-sales-excel>Xuất Excel</button></div><div data-op-sales-table>' + salesTable() + '</div></section>';
     },
     bind(root) {
       const redraw = () => {
@@ -887,13 +939,8 @@
       root.querySelector('[data-op-sales-search]').addEventListener('input', event => { salesState.search = event.target.value; redraw(); });
       for (const prop of ['value', 'from', 'to']) {
         const input = root.querySelector('[data-op-sales-' + prop + ']');
-        if (input) input.addEventListener('change', event => { salesState[prop] = event.target.value; redraw(); });
+        if (input) input.addEventListener('change', () => { salesState[prop] = input.value; const display=input.parentElement.querySelector('[data-local-date-display]'); if(display)display.textContent=input.value?input.value.split('-').reverse().join('/'):input.type==='month'?'mm/yyyy':'dd/mm/yyyy'; redraw(); });
       }
-      Search.attach(root.querySelector('[data-op-sales-search]'), {items: () => salesDocs().map(doc => ({
-        value: doc.id, label: doc.id,
-        detail: [invoiceCustomer(doc), itemNames(doc.items), M.money(paidTotal(doc))].filter(Boolean).join(' · '),
-        searchText: salesSearchText(doc)
-      })), onSelect: item => showInvoice(item.value)});
       root.addEventListener('click', event => {
         const figure=event.target.closest('[data-figure-view]');
         if(figure){
@@ -936,7 +983,7 @@
   function eligibleInvoices() {
     const now = Date.parse(ERP.today() + 'T00:00:00+07:00');
     return newest((M.data.movements || []).filter(doc => {
-      if (doc.type !== 'sale' || !day(doc.when)) return false;
+      if (doc.type !== 'sale' || ERP.isVoidedSale(doc) || !day(doc.when)) return false;
       const age = (now - Date.parse(day(doc.when) + 'T00:00:00+07:00')) / 86400000;
       return age >= 0 && age <= 30 && invoiceRemainder(doc).some(row => row.remaining > 0);
     }));
@@ -1081,11 +1128,6 @@
         M.downloadWorkbook('Atino-so-doi-hang-'+ERP.today()+'.xlsx',[sheet],event.currentTarget);
       };
       root.querySelector('[data-op-return-search]').addEventListener('input', event => { returnState.search = event.target.value; root.querySelector('[data-op-return-table]').innerHTML = returnTable(); });
-      Search.attach(root.querySelector('[data-op-return-search]'), {items: () => returnDocs().map(doc => ({
-        value: doc.id, label: doc.id,
-        detail: [doc.invoiceId, itemNames(doc.items), doc.replacements && doc.replacements.length ? 'Đổi sang ' + itemNames(doc.replacements) : ''].filter(Boolean).join(' · '),
-        searchText: returnSearchText(doc)
-      })),onSelect:item=>showReturn(item.value)});
       root.addEventListener('click', event => {
         const figure=event.target.closest('[data-figure-view]');
         if(figure){

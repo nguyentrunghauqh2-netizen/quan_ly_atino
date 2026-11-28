@@ -27,13 +27,16 @@
     ? Number.isSafeInteger(doc.extraPaid)&&doc.extraPaid>=0?doc.extraPaid:Number.isSafeInteger(doc.total)&&doc.total>=0?doc.total:0
     : Number.isSafeInteger(doc.total)?doc.total:Math.max(0,grossTotal(doc)-(doc.discount||0));
   function paymentMethod(doc) {
+    if (isVoidedSale(doc)) return '—';
     if (doc.type === 'exchange' && paidTotal(doc) === 0) return 'Không thu thêm';
     return doc.method || (['Tiền mặt', 'Chuyển khoản'].includes(doc.note) ? doc.note : 'Chưa ghi nhận');
   }
   function transactionStatus(doc) {
+    if (isVoidedSale(doc)) return 'Đã hủy';
     if (doc.type === 'exchange') return paidTotal(doc) > 0 ? 'Đổi bù tiền' : 'Đổi ngang giá';
     return 'Đã thanh toán';
   }
+  function isVoidedSale(doc) {return doc.type==='sale'&&doc.paymentStatus==='voided';}
   function ensure(shop) {
     shop.customers ||= []; shop.suppliers ||= [{id:'NCC001',name:'Kho tổng — Công ty TNHH Thời Trang Minh AM',contact:'Kho tổng',phone:'',email:'',address:'Thôn Hạnh Đàn, Xã Ô Diên, Thành phố Hà Nội, Việt Nam',note:'Đầu mối nhập hàng duy nhất của cửa hàng.',active:true}];
     shop.returns ||= []; shop.stockNotes ||= {}; shop.shifts ||= []; shop.audit ||= [];
@@ -100,7 +103,9 @@
   const stockThreshold = (data, code) => data.stockNotes?.[code]?.threshold ?? 2;
   function lowStockSizes(data, product, balance) {
     if (product.active === false) return [];
-    return balance.sizes.filter(size => size.size !== 'Chưa phân size' && size.total <= stockThreshold(data, product.code));
+    const declared = new Set(sizesFor(product));
+    const threshold = stockThreshold(data, product.code);
+    return balance.sizes.filter(size => size.size !== 'Chưa phân size' && declared.has(size.size) && size.total <= threshold);
   }
   function monthlyUnitsSold(movements, now = Date.now()) {
     const monthStart = Date.parse(nowDay(now).slice(0, 7) + '-01T00:00:00+07:00');
@@ -157,7 +162,7 @@
     warnings.sort((a, b) => priority[a.status] - priority[b.status] || a.qty - b.qty || a.product.code.localeCompare(b.product.code));
     return {warnings, aging, agingDays: STOCK_AGE_DAYS};
   }
-  function spendFor(shop,id) {const docs=shop.movements.filter(d=>d.customerId===id&&['sale','exchange'].includes(d.type)),sales=docs.filter(d=>d.type==='sale');return {spend:docs.reduce((s,d)=>s+paidTotal(d),0),orderCount:sales.length,lastPurchase:Math.max(0,...sales.map(d=>d.when||0))||null};}
+  function spendFor(shop,id) {const docs=shop.movements.filter(d=>d.customerId===id&&['sale','exchange'].includes(d.type)&&!isVoidedSale(d)),sales=docs.filter(d=>d.type==='sale');return {spend:docs.reduce((s,d)=>s+paidTotal(d),0),orderCount:sales.length,lastPurchase:Math.max(0,...sales.map(d=>d.when||0))||null};}
   function customerView(shop,c) {const facts=spendFor(shop,c.id);return {...c,...facts};}
   function publicStaff(person) {const {code,name,username,role,active,phone='',jobTitle='',baseSalary=0,payType='monthly',hourlyRate=0,startDate='',defaultShift=''}=person;return {code,name,username,role,active,phone,address:person.profile?.address||'',jobTitle,baseSalary,payType,hourlyRate,startDate,defaultShift};}
   function snap(shop,user) {return clone({user,products:shop.products.map(p=>({...p,active:p.active!==false})),balances:balances(shop),movements:shop.movements,staff:shop.staff.map(publicStaff),customers:shop.customers.map(c=>customerView(shop,c)),suppliers:shop.suppliers,returns:shop.returns,stockNotes:shop.stockNotes,shifts:shop.shifts,settings:shop.settings,audit:shop.audit});}
@@ -199,16 +204,21 @@
     return old;
   }
   function stampDocument(doc,input,user,kind) {Object.assign(doc,{when:Date.now(),employeeId:user.code,employeeName:user.name,requestId:input.requestId,requestKind:kind,signature:JSON.stringify(input)});return doc;}
-  function itemsFor(shop,lines,kind,stock=stockMap(shop)) {
+  function itemsFor(shop,lines,kind,stock=stockMap(shop),originalItems=[]) {
     if(!Array.isArray(lines)||!lines.length||lines.length>100)fail('Thêm từ 1 đến 100 dòng sản phẩm.');
     const used=new Set();
     return lines.map(line=>{
-      const p=shop.products.find(p=>p.code===line.code&&(kind==='dispatch'||p.active!==false));if(!p)fail('Sản phẩm không tồn tại hoặc đã ngừng kinh doanh.');
-      const size=clean(line.size,40);const row=stock.get(p.code)?.get(size);if(!row)fail(`Chọn size hợp lệ cho ${p.name}.`);
-      const key=p.code+'|'+size;if(used.has(key))fail(`${p.name} size ${size} bị trùng. Gộp số lượng vào một dòng.`);used.add(key);
+      const p=shop.products.find(p=>p.code===line.code);
+      const oldLine=originalItems.find(item=>sameLine(item,line));
+      if(!p||(kind!=='dispatch'&&p.active===false&&!oldLine))fail('Sản phẩm không tồn tại hoặc đã ngừng kinh doanh.');
+      const size=clean(line.size,40);
       const receipt=kind==='receipt'||kind==='receiptRetail';
+      if(receipt&&!sizesFor(p).includes(size))fail(`${p.name} không nhận nhập size ${size || 'chưa chọn'}.`);
+      const row=stock.get(p.code)?.get(size);if(!row)fail(`Chọn size hợp lệ cho ${p.name}.`);
+      const key=p.code+'|'+size;if(used.has(key))fail(`${p.name} size ${size} bị trùng. Gộp số lượng vào một dòng.`);used.add(key);
       if(kind==='receiptRetail'&&Object.hasOwn(line,'unitPrice'))fail('Tài khoản nhân viên chỉ nhập giá bán.');
       const qty=int(line.qty,'Số lượng',1,100000),unitPrice=kind==='receiptRetail'?null:kind==='receipt'?int(line.unitPrice,'Giá nhập',1,1e9):kind==='sale'?int(p.price,'Giá bán',1,1e9):0;
+      if(kind==='sale'&&p.active===false&&qty>oldLine.qty)fail('Không thể tăng số lượng mặt hàng đã ngừng bán.');
       const out={code:p.code,name:p.name,size,qty,unitPrice,lineTotal:unitPrice===null?null:qty*unitPrice};
       if(receipt)out.sellingPrice=kind==='receiptRetail'?int(line.sellingPrice,'Giá bán',1,1e9):p.price;
       if(!receipt){
@@ -238,7 +248,7 @@
     if(!name||!number)fail('Nhập đủ tên và số điện thoại của khách, hoặc để trống cả hai ô cho khách lẻ.');
     const digits=number.replace(/\D/g,'');
     const existing=shop.customers.find(c=>c.phone?.replace(/\D/g,'')===digits);
-    if(existing&&existing.name.trim().normalize('NFC').toLocaleLowerCase('vi')!==name.normalize('NFC').toLocaleLowerCase('vi'))fail('Số điện thoại đã có hồ sơ với tên khác. Chọn đúng khách từ gợi ý.');
+    if(existing&&existing.name.trim().normalize('NFC').toLocaleLowerCase('vi')!==name.normalize('NFC').toLocaleLowerCase('vi'))fail('Số điện thoại đã có hồ sơ với tên khác. Chọn đúng khách trong danh sách khách hàng.');
     return existing||{name,phone:number};
   }
   function birthdayReduction(movements,customer,gross,day,excludedId) {
@@ -328,40 +338,81 @@
       }
     }
   }
+  function editedSaleDiscount(doc,items,movements,customer) {
+    const gross=items.reduce((sum,item)=>sum+item.lineTotal,0);
+    if(!gross)return 0;
+    if(doc.birthdayPricing)return birthdayReduction(movements,customer,gross,nowDay(doc.when),doc.id);
+    const previous=salePaidItems(doc);
+    if(previous.every(old=>items.some(item=>sameLine(old,item))))return Math.max(0,grossTotal(doc)-paidTotal(doc));
+    return items.reduce((sum,item)=>{
+      const old=previous.find(row=>sameLine(row,item));
+      if(!old)return sum;
+      return sum+paidShare(old.lineTotal-old.paidTotal,Math.min(item.qty,old.qty),old.qty);
+    },0);
+  }
+  function removedSaleItems(original,items,requested,user) {
+    if(!Array.isArray(requested)||requested.length>original.length)fail('Danh sách mặt hàng xóa không hợp lệ.');
+    const removed=[];
+    for(const old of original){
+      const index=requested.findIndex(row=>row&&sameLine(row,old));
+      const kept=items.some(row=>sameLine(row,old));
+      if(kept&&index!==-1)fail('Mặt hàng đã xóa vẫn còn trên hóa đơn.');
+      if(kept)continue;
+      if(index===-1)fail('Hãy bấm × và nhập lý do xóa mặt hàng '+old.name+'.');
+      removed.push({...old,reason:required(requested[index].reason,'Lý do xóa',300),removedBy:user.code,removedAt:Date.now()});
+    }
+    if(removed.length!==requested.length)fail('Danh sách mặt hàng xóa không khớp hóa đơn.');
+    return removed;
+  }
   const editSale = input => access(true, (shop,user) => {
     const doc = shop.movements.find(row => row.type === 'sale' && row.id === input.id);
     if (!doc) fail('Không tìm thấy hóa đơn bán.');
     if ((doc.editRevision || 0) !== input.revision) fail('Hóa đơn vừa thay đổi. Mở lại để sửa.');
+    if (doc.paymentStatus==='voided') fail('Hóa đơn đã hủy toàn bộ mặt hàng.');
     const stock = stockMap({...shop,movements:shop.movements.filter(row => row !== doc)});
     const oldPrices = new Map(doc.items.map(row => [row.code,row.unitPrice]));
-    const items = itemsFor(shop,input.lines,'sale',stock);
+    const original = salePaidItems(doc);
+    const items = Array.isArray(input.lines)&&input.lines.length===0 ? [] : itemsFor(shop,input.lines,'sale',stock,original);
     for (const item of items) {
       const oldLine = doc.items.find(row => sameLine(row,item));
+      if(oldLine)item.name=oldLine.name||item.name;
       item.unitPrice = oldLine?.unitPrice ?? oldPrices.get(item.code) ?? item.unitPrice;
       item.lineTotal = item.qty * item.unitPrice;
     }
-    const gross = int(items.reduce((sum,item)=>sum+item.lineTotal,0),'Tổng tiền',1,1e14);
+    const removed = removedSaleItems(original,items,input.removedLines??[],user);
+    if(!items.length&&!removed.length)fail('Hóa đơn cần ít nhất một mặt hàng hoặc lý do xóa các dòng đã lưu.');
+    const gross = int(items.reduce((sum,item)=>sum+item.lineTotal,0),'Tổng tiền',0,1e14);
     const customer = selectCustomer(shop,input.customerId);
-    const discount = doc.birthdayPricing ? birthdayReduction(shop.movements,customer,gross,nowDay(doc.when),doc.id) : Math.max(0,grossTotal(doc)-paidTotal(doc));
+    const discount = editedSaleDiscount(doc,items,shop.movements,customer);
     if (discount > gross) fail('Giá trị mới thấp hơn khoản giảm đã ghi trên hóa đơn cũ.');
     const total = gross - discount;
     if(total !== input.expectedTotal) fail('Giá đã thay đổi. Mở lại hóa đơn để kiểm tra.');
-    const original = salePaidItems(doc);
     const unchanged = total === paidTotal(doc) && items.length === original.length &&
       items.every(item => original.some(row => sameLine(row,item) && row.qty === item.qty && row.unitPrice === item.unitPrice));
     const paidItems = unchanged ? original : allocateDiscount(items,discount);
     checkEditedReturns(previouslyReturned(shop,doc.id),original,paidItems);
-    const pay = payment(input,total);
-    const seller = saleStaff(shop.staff,input.sellerId,user);
+    const pay = items.length ? payment(input,total) : {method:doc.method||paymentMethod(doc),paymentStatus:'voided'};
+    const originalSeller=doc.sellerId||doc.employeeId;
+    const seller=input.sellerId===originalSeller ? {sellerId:originalSeller,sellerName:doc.sellerName||doc.employeeName} : saleStaff(shop.staff,input.sellerId,user);
+    const customerId=customer?.id||'';
+    const changedCustomer=(doc.customerId||'')!==customerId;
     const describe = d => [d.customerName,d.sellerName||d.employeeName,d.method,d.total,d.cashReceived,d.items.map(i=>i.code+' '+i.size+' × '+i.qty).join(', ')].join(' · ');
     const before = describe(doc);
     delete doc.cashReceived;
     delete doc.change;
-    Object.assign(doc,pay,{items:paidItems,gross,total,discount,note:pay.method,
-      customerId:customer?.id||'',customerName:customer?.name||'Khách lẻ',
+    Object.assign(doc,pay,{items:paidItems,removedItems:[...(doc.removedItems||[]),...removed],gross,total,discount,note:pay.method,
+      customerId,customerName:changedCustomer ? customer?.name||'Khách lẻ' : doc.customerName||customer?.name||'Khách lẻ',
       sellerId:seller.sellerId,sellerName:seller.sellerName,editRevision:input.revision+1});
+    if(changedCustomer){
+      doc.customerPhone=customer?.phone||'';
+      for(const row of [...shop.movements.filter(row=>row.exchangeOf===doc.id),...shop.returns.filter(row=>row.invoiceId===doc.id)]){
+        row.customerId=doc.customerId;
+        row.customerName=doc.customerName;
+      }
+    }
     audit(shop,user,'Sửa hóa đơn bán',doc.id);
-    shop.audit[0].detail = before+' → '+describe(doc);
+    const reasons=removed.map(item=>item.code+' '+item.size+' × '+item.qty+': '+item.reason);
+    shop.audit[0].detail = before+' → '+describe(doc)+(reasons.length?' · Xóa mặt hàng: '+reasons.join(' | '):'');
     return {id:doc.id,total};
   });
   const saveProduct=input=>access(true,(shop,user)=>{
@@ -428,36 +479,64 @@
   function matchesSlot(shift,slot){
     return shift.fullDay || (shift.start<'14:00' ? 'morning':'afternoon')===slot.key;
   }
+  function overlapsShift(left,right){
+    return left.fullDay || right.fullDay || (left.start<right.end && left.end>right.start);
+  }
   const updateWorkDay=input=>access(true,(shop,user)=>{
     const date=optionalDay(input.date,'Ngày làm việc');
     if(!date)fail('Chọn ngày làm việc.');
-    for(const change of input.changes){
+    const changes=input.changes || [];
+    const completedIds=input.completedIds || [];
+    if(completedIds.length && date>nowDay())fail('Không thể xác nhận ca làm ở ngày tương lai.');
+    const toComplete=completedIds.map(id=>{
+      const shift=shop.shifts.find(row=>row.id===id && row.date===date);
+      if(!shift)fail('Ca làm đã thay đổi. Hãy mở lại lịch làm việc.');
+      if(shift.fullDay || !shift.start || !shift.end)fail('Cần có giờ bắt đầu và kết thúc để xác nhận ca làm.');
+      return shift;
+    });
+    // Bỏ ca cũ trước để có thể chuyển sang ca khác trong cùng lần lưu.
+    for(const change of [...changes.filter(row=>!row.working),...changes.filter(row=>row.working)]){
       const person=shop.staff.find(p=>p.code===change.code);
       if(!person || (change.working && person.active===false))fail('Kiểm tra lại nhân viên đã chọn.');
       const matches=s=>s.date===date && s.employeeId===person.code;
       const slot=workSlots.find(s=>s.key===change.slot);
       if(!slot)fail('Chọn ca sáng hoặc ca chiều.');
-      for(const row of shop.shifts.filter(s=>matches(s)&&s.fullDay)){
-        Object.assign(row,{fullDay:false,start:workSlots[0].start,end:workSlots[0].end});
-        shop.shifts.push({...row,id:nextId(shop.shifts,'CA',4),start:workSlots[1].start,end:workSlots[1].end});
-      }
       const inSlot=s=>matches(s)&&matchesSlot(s,slot);
-      if(change.working && !shop.shifts.some(inSlot)){
-        shop.shifts.push({id:nextId(shop.shifts,'CA',4),employeeId:person.code,date,status:'planned',start:slot.start,end:slot.end});
-      }else if(!change.working){
+      if(!change.working){
+        const legacy=shop.shifts.find(s=>matches(s)&&s.fullDay);
         shop.shifts=shop.shifts.filter(s=>!inSlot(s));
+        if(legacy){
+          const remaining=workSlots.find(entry=>entry.key!==slot.key);
+          if(!shop.shifts.some(s=>matches(s)&&overlapsShift(s,remaining))){
+            shop.shifts.push({...legacy,fullDay:false,status:'planned',start:remaining.start,end:remaining.end});
+          }
+        }
+      }else if(!shop.shifts.some(inSlot)){
+        if(shop.shifts.some(s=>matches(s)&&overlapsShift(s,slot))){
+          fail(`Ca ${slot.start}–${slot.end} bị trùng thời gian với ca khác của ${person.name}.`);
+        }
+        shop.shifts.push({id:nextId(shop.shifts,'CA',4),employeeId:person.code,date,status:'planned',start:slot.start,end:slot.end});
       }
     }
-    audit(shop,user,'Cập nhật ngày làm việc',date);
+    if(changes.length)audit(shop,user,'Cập nhật ngày làm việc',date);
+    for(const shift of toComplete){
+      if(!shop.shifts.includes(shift))fail('Ca đã bị bỏ khỏi lịch làm việc.');
+      if(shift.status==='completed')continue;
+      if(shop.shifts.some(s=>s!==shift && s.date===date && s.employeeId===shift.employeeId && overlapsShift(s,shift))){
+        fail('Ca làm bị trùng thời gian. Hãy sửa lịch trước khi xác nhận hoàn thành.');
+      }
+      shift.status='completed';
+      audit(shop,user,'Hoàn thành ca làm',shift.id);
+    }
   });
   const saveShift=input=>access(true,(shop,user)=>{
     const existing=input.id?shop.shifts.find(s=>s.id===input.id):null;const staff=shop.staff.find(p=>p.code===input.employeeId&&(p.active||existing?.employeeId===p.code));if(!staff)fail('Chọn nhân viên đang hoạt động.');
     const day=optionalDay(input.date,'Ngày làm việc');if(!day)fail('Chọn ngày làm việc.');
     const start=clean(input.start,5),end=clean(input.end,5);if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(start)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(end)||end<=start)fail('Giờ kết thúc phải sau giờ bắt đầu trong cùng ngày.');
     const status=input.status==='completed'?'completed':'planned';if(status==='completed'&&day>nowDay())fail('Không thể xác nhận ca làm ở ngày tương lai.');
-    if(shop.shifts.some(s=>s.id!==input.id&&s.employeeId===staff.code&&s.date===day&&s.start<end&&s.end>start))fail('Ca làm bị trùng thời gian với ca khác của nhân viên này.');
+    if(shop.shifts.some(s=>s.id!==input.id&&s.employeeId===staff.code&&s.date===day&&overlapsShift(s,{start,end})))fail('Ca làm bị trùng thời gian với ca khác của nhân viên này.');
     let row=input.id?shop.shifts.find(s=>s.id===input.id):null;if(input.id&&!row)fail('Ca làm không tồn tại.');if(!row){row={id:nextId(shop.shifts,'CA',4)};shop.shifts.push(row);}
-    Object.assign(row,{employeeId:staff.code,date:day,start,end,status,note:clean(input.note,500)});audit(shop,user,'Cập nhật ca làm',row.id);return {id:row.id};
+    Object.assign(row,{employeeId:staff.code,date:day,start,end,status,fullDay:false,note:clean(input.note,500)});audit(shop,user,'Cập nhật ca làm',row.id);return {id:row.id};
   });
   const deleteShift=id=>access(true,(shop,user)=>{const i=shop.shifts.findIndex(s=>s.id===id);if(i<0)fail('Không tìm thấy ca làm.');shop.shifts.splice(i,1);audit(shop,user,'Xóa ca làm',id);return {id};});
   const saveSettings=input=>access(true,(shop,user)=>{
@@ -552,7 +631,7 @@
   function metrics(data,period='month',value=nowDay().slice(0,7)) {
     const length=period==='day'?10:period==='month'?7:4,key=String(value||nowDay()).slice(0,length);
     const docs=data.movements.filter(d=>Number.isFinite(d.when)&&nowDay(d.when).startsWith(key));
-    const transactions=docs.filter(d=>['sale','exchange'].includes(d.type)).sort((a,b)=>b.when-a.when),sales=transactions.filter(d=>d.type==='sale');
+    const transactions=docs.filter(d=>['sale','exchange'].includes(d.type)).sort((a,b)=>b.when-a.when),sales=transactions.filter(d=>d.type==='sale'&&!isVoidedSale(d));
     let buckets=[];if(period==='day')buckets=Array.from({length:24},(_,i)=>({label:String(i).padStart(2,'0')+'h',value:0}));
     else if(period==='year')buckets=Array.from({length:12},(_,i)=>({label:'T'+(i+1),value:0}));
     else {const [y,m]=key.split('-').map(Number),n=new Date(Date.UTC(y||2026,m||1,0)).getUTCDate();buckets=Array.from({length:n},(_,i)=>({label:String(i+1),value:0}));}
@@ -614,5 +693,5 @@
       stockValue, unknownCostUnits, pendingReceiptCount, uncostedReceiptUnits
     };
   }
-  window.AtinoERP={workSlots,matchesSlot,updateWorkDay,birthdayReduction,linkedExchangeIds,editSale,documentPeople,saleStaff,revenueEmployee,snapshot,checkoutData,categories:window.AtinoCatalog?.categories||Object.keys(CATEGORIES),sizesFor,unitFor,references:window.AtinoCatalog?.references||[],today:nowDay,money:n=>fmt.format(n||0),inventory:stockMap,summarizeStock,monthlyUnitsSold,stockThreshold,lowStockSizes,stockAttention,isInternalDestination,metrics,documentPaidTotal:paidTotal,paymentMethod,transactionStatus,salePaidItems,saveProduct,saveStockNote,saveSupplier,saveCustomer,saveEmployee,saveShift,deleteShift,saveSettings,saveStockDocument,previewReceipt,previewDispatch,completeReceiptCost,quoteSale,saveSale,quoteExchange,saveExchange,employeeFields};
+  window.AtinoERP={workSlots,matchesSlot,updateWorkDay,birthdayReduction,editedSaleDiscount,isVoidedSale,linkedExchangeIds,editSale,documentPeople,saleStaff,revenueEmployee,snapshot,checkoutData,categories:window.AtinoCatalog?.categories||Object.keys(CATEGORIES),sizesFor,unitFor,references:window.AtinoCatalog?.references||[],today:nowDay,money:n=>fmt.format(n||0),inventory:stockMap,summarizeStock,monthlyUnitsSold,stockThreshold,lowStockSizes,stockAttention,isInternalDestination,metrics,documentPaidTotal:paidTotal,paymentMethod,transactionStatus,salePaidItems,saveProduct,saveStockNote,saveSupplier,saveCustomer,saveEmployee,saveShift,deleteShift,saveSettings,saveStockDocument,previewReceipt,previewDispatch,completeReceiptCost,quoteSale,saveSale,quoteExchange,saveExchange,employeeFields};
 })();

@@ -67,17 +67,6 @@
     return {from: store, to: doc.destination || STORE.warehouse};
   }
 
-  // "Từ phiếu nhập": phiếu nhập gần nhất trước đó có cùng mặt hàng (nếu chứng từ chưa ghi sẵn).
-  function sourceReceipt(doc, ctx) {
-    if (doc.fromReceiptId) return doc.fromReceiptId;
-    if (doc.type !== 'dispatch') return '—';
-    const codes = new Set((doc.items || []).map(item => item.code));
-    const found = (ctx.movements || [])
-      .filter(row => row.type === 'receipt' && row.when <= doc.when && (row.items || []).some(item => codes.has(item.code)))
-      .sort((a, b) => b.when - a.when)[0];
-    return found ? found.id : '—';
-  }
-
   const lineRetailPrice = (item, ctx) => num(item.sellingPrice) || num(productOf(item.code, ctx)?.price) || num(item.unitPrice);
 
   // Tính các thuộc tính chung của Hóa đơn Nhập / Xuất.
@@ -113,7 +102,7 @@
       pairs: [
         ['Kho xuất', place.from],
         ['Kho nhập', place.to],
-        ['Từ phiếu nhập', sourceReceipt(doc, ctx)],
+        ['Từ phiếu nhập', doc.fromReceiptId || '—'],
         ['Người tạo', person(doc.employeeId, doc.employeeName, ctx.staff)],
         ['Ngày tạo', dateTime(doc.when)],
         ['Ghi chú', doc.note || '—']
@@ -158,11 +147,11 @@
     const sum = stockSummary(doc, ctx);
     const pair = label => sum.pairs.find(item => item[0] === label)?.[1] ?? '—';
     const source = pair('Từ phiếu nhập');
-    const canOpen = source && source !== '—';
+    const canOpen = (ctx.movements || []).some(row => row.type === 'receipt' && row.id === doc.fromReceiptId);
     const left = [
       ['Kho xuất', esc(pair('Kho xuất'))],
       ['Kho nhập', esc(pair('Kho nhập'))],
-      ['Từ phiếu nhập', canOpen ? `<button type="button" class="dv-link" data-dv-open="${esc(source)}">${esc(source)}</button>` : '—'],
+      ['Từ phiếu nhập', canOpen ? `<button type="button" class="dv-link" data-dv-open="${esc(source)}">${esc(source)}</button>` : esc(source)],
       ['Ghi chú', esc(pair('Ghi chú'))]
     ];
     const middle = [
@@ -282,8 +271,8 @@
   function saleReceiptHtml(doc, ctx = {}) {
     const items = doc.items || [];
     const customer = (ctx.customers || []).find(row => row.id === doc.customerId);
-    const customerName = customer?.name || doc.customerName || 'Khách lẻ';
-    const customerPhone = customer?.phone || doc.customerPhone || '';
+    const customerName = doc.customerName || customer?.name || 'Khách lẻ';
+    const customerPhone = doc.customerPhone || customer?.phone || '';
     const cashierCode = doc.cashierId || doc.employeeId;
     const cashier = person(cashierCode, doc.cashierName || (doc.cashierId ? '' : doc.employeeName), ctx.staff);
     const seller = doc.sellerId ? person(doc.sellerId, doc.sellerName, ctx.staff) : '';
@@ -298,27 +287,31 @@
       const size = item.size && item.size !== 'Chưa phân size' ? ' - ' + item.size : '';
       return `<tr><td>${esc(item.name)}${esc(size)}<br>${money(item.unitPrice)}</td><td class="r">${number.format(num(item.qty))}</td><td class="r">${off ? money(off) : ''}</td><td class="r">${money(line)}</td></tr>`;
     }).join('');
-    const qrText = [STORE.branchCode, doc.id, paid].join('|');
+    const voided = doc.paymentStatus === 'voided';
+    const qr = voided ? '' : qrSvg([STORE.branchCode, doc.id, paid].join('|'));
+    const removed = (doc.removedItems || []).map(item => {
+      const reason = ctx.showRemovalReasons && item.reason ? `<br><small>Lý do: ${esc(item.reason)}</small>` : '';
+      return `<tr style="color:#a32130"><td><del>${esc(item.name || item.code)}${item.size ? ' · ' + esc(item.size) : ''}</del>${reason}</td><td class="r">${number.format(num(item.qty))}</td><td></td><td class="r">Đã xóa</td></tr>`;
+    }).join('');
     return `${RECEIPT_STYLE}<div class="dv-receipt">
       <h1>${esc(STORE.name)}</h1>
       <p>Cửa hàng: ${esc(STORE.address)}, ${esc(STORE.branchCode)}</p>
       <p>Hotline: <strong>${esc(STORE.hotline)}</strong></p>
       <p>Thời gian mua hàng: <strong>${esc(dateTime(doc.when, true))}</strong></p>
-      <h2>HOÁ ĐƠN BÁN HÀNG</h2><p class="c">ID: <strong>${esc(doc.id)}</strong></p>
+      <h2>${voided ? 'HÓA ĐƠN ĐÃ HỦY' : 'HOÁ ĐƠN BÁN HÀNG'}</h2><p class="c">ID: <strong>${esc(doc.id)}</strong></p>
       <p>Khách hàng: <strong>${esc([customerName, customerPhone].filter(Boolean).join(' - '))}</strong></p>
       <p><em>Nhân viên thu ngân: ${esc(cashier)}</em></p>
       ${seller && seller !== cashier ? `<p><em>Nhân viên bán hàng: ${esc(seller)}</em></p>` : ''}
-      <hr><table><thead><tr><th>Sản phẩm</th><th class="r">Số lượng</th><th class="r">Chiết khấu</th><th class="r">Thành tiền</th></tr></thead><tbody>${rows}</tbody></table><hr>
+      <hr><table><thead><tr><th>Sản phẩm</th><th class="r">Số lượng</th><th class="r">Chiết khấu</th><th class="r">Thành tiền</th></tr></thead><tbody>${rows}${removed}</tbody></table><hr>
       <p class="sum"><strong>Tổng SL sản phẩm</strong><strong>${number.format(items.reduce((sum, item) => sum + num(item.qty), 0))}</strong></p>
       <p class="sum"><span>Chiết khấu:</span><span>${discount ? money(discount) : ''}</span></p>
       <p class="sum big"><span>Tổng tiền SCK:</span><span>${money(paid)}</span></p>
-      <p class="sum"><strong>Đã thanh toán:</strong><span class="small">(+ ${methodLabel}: ${money(paid)})</span></p>
+      ${voided ? '' : `<p class="sum"><strong>Đã thanh toán:</strong><span class="small">(+ ${methodLabel}: ${money(paid)})</span></p>`}
       ${doc.cashReceived != null ? `<p class="sum small"><span>Tiền khách đưa: ${money(doc.cashReceived)}</span><span>Tiền trả lại: ${money(Math.max(0, num(doc.cashReceived) - paid))}</span></p>` : ''}
-      <p class="c">Vui lòng quét mã QR để xuất hóa đơn điện tử</p>${qrSvg(qrText)}
-      <p class="c small">Phiếu tính tiền chỉ có giá trị xuất hóa đơn trong vòng 120 phút và trước 22h trong ngày mua hàng.</p>
+      ${qr ? `<p class="c">Mã QR tham chiếu nội bộ</p>${qr}` : ''}
       <p class="c"><em>Cảm ơn Quý khách đã tin tưởng và lựa chọn sản phẩm <strong>${esc(STORE.name)}</strong>!</em></p>
       <p class="small">Để đảm bảo quyền lợi đổi hàng cũng như số tiền thanh toán, Quý khách vui lòng kiểm tra kỹ thông tin trên hóa đơn gồm: thời gian mua hàng, thông tin sản phẩm, số lượng sản phẩm, tổng tiền và thông tin cá nhân.</p>
-      <p class="small">Hãy liên hệ với chúng tôi để <strong><u>NHẬN NGAY 2 TRIỆU ĐỒNG</u></strong> qua hotline ${esc(STORE.complaintHotline)} nếu hoá đơn này không ghi đúng thời gian mua hàng hoặc thông tin Khách hàng trên hoá đơn là thông tin của Khách hàng khác.</p>
+      <p class="small">Nếu thông tin trên hóa đơn cần điều chỉnh, Quý khách vui lòng liên hệ hotline ${esc(STORE.complaintHotline)}.</p>
       <hr><p><strong><u>CHÍNH SÁCH 30 NGÀY ĐỔI HÀNG:</u></strong></p>
       <ul>${POLICY.map(line => `<li>${esc(line)}</li>`).join('')}</ul></div>`;
   }

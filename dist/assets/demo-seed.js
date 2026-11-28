@@ -742,7 +742,8 @@
       const outdatedEmail = key === 'email' && String(supplier[key] || '').endsWith('.example.invalid');
       const outdatedContact = key === 'contact' && String(supplier[key] || '').includes('(mẫu)');
       const outdatedNote = key === 'note' && /giả lập|minh họa/i.test(String(supplier[key] || ''));
-      const next = ['id','name','active'].includes(key) || !supplier[key] || outdatedPhone || outdatedEmail || outdatedContact || outdatedNote ? value : supplier[key];
+      const missing = key === 'phone' ? supplier[key] == null : !supplier[key];
+      const next = ['id','name','active'].includes(key) || missing || outdatedPhone || outdatedEmail || outdatedContact || outdatedNote ? value : supplier[key];
       if (supplier[key] !== next) {supplier[key] = next; changed = true;}
     }
     return changed;

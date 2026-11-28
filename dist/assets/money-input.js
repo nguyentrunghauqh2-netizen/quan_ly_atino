@@ -27,9 +27,7 @@
     input.setCustomValidity(error);
   }
 
-  document.addEventListener('input', event => {
-    const input = event.target;
-    if (!input.matches?.('[data-money]') || event.isComposing) return;
+  function formatInput(input) {
     const previous = input.value;
     const amount = read(input);
     if (Number.isSafeInteger(amount)) {
@@ -44,6 +42,18 @@
       input.setSelectionRange(caret, caret);
     }
     validate(input);
+  }
+
+  document.addEventListener('input', event => {
+    const input = event.target;
+    if (!input.matches?.('[data-money]')) return;
+    if (event.isComposing && !/^[\d.]+$/.test(input.value)) return;
+    formatInput(input);
+  }, true);
+
+  document.addEventListener('compositionend', event => {
+    const input = event.target;
+    if (input.matches?.('[data-money]')) formatInput(input);
   }, true);
 
   document.addEventListener('reset', event => {

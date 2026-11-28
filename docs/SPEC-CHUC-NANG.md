@@ -46,6 +46,7 @@ Tài liệu này tổng hợp toàn bộ **chức năng đã chốt** (khớp 10
 - Cộng `số lượng × đơn giá` để tính tổng trước giảm. Khách có hồ sơ được giảm 10% đúng ngày sinh theo giờ Việt Nam, làm tròn đến đồng, tối đa 200.000đ mỗi khách trong ngày qua nhiều hóa đơn. Không dùng voucher.
 - Phân bổ số tiền giảm theo thành tiền từng dòng và lưu `paid_total` sau giảm để tính tiền đổi hàng từng phần. Tổng các dòng thực trả bằng tổng phải thanh toán.
 - Thanh toán **Tiền mặt** (nhập tiền khách đưa $\ge$ tổng tiền, tính tiền thối) hoặc **Chuyển khoản** (xác nhận đã nhận tiền). Hỗ trợ in hóa đơn.
+- Khi sửa hóa đơn, Quản lý nhập lý do để xóa một dòng đã lưu. Dòng xóa được gạch đỏ và giữ riêng để đối chiếu. Khi lưu, số lượng của dòng xóa được trả về tồn, thực thu được tính lại trên các dòng còn lại và báo cáo dùng số thực thu mới. Xóa hết dòng đưa hóa đơn về trạng thái đã hủy với thực thu 0đ. Dòng đã phát sinh đổi hàng vẫn phải đủ số lượng và giá trị đã dùng để đổi.
 
 ### 5) Đổi hàng (Không nhận hàng lỗi)
 - Tra cứu hóa đơn gốc trong thời hạn **30 ngày** từ ngày mua.

@@ -354,9 +354,9 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
         @media (max-width:600px) { .movement:not(.sale-line) { grid-template-columns:1fr 1fr; } #search { min-width:0; } }
     </style>
     <link rel="stylesheet" href="assets/account.css?v=cadbdeb4eea4">
-    <link rel="stylesheet" href="assets/manager.css?v=65a3ce48243d">
-    <script src="assets/money-input.js?v=d600e4a81b16"></script>
-    <link rel="stylesheet" href="assets/employee.css?v=9d469496b954">
+    <link rel="stylesheet" href="assets/manager.css?v=90b305ce690c">
+    <script src="assets/money-input.js?v=00daef9f47f7"></script>
+    <link rel="stylesheet" href="assets/employee.css?v=1929f834fed8">
     <link rel="stylesheet" href="assets/search.css?v=32f948f115fd">
     <link rel="stylesheet" href="assets/login.css?v=5f0c98f572af">
     <link rel="stylesheet" href="assets/portal.css?v=2433fb3566bd">
@@ -614,9 +614,9 @@ button:disabled {opacity:.58;cursor:wait}body[data-page=login] .fab {display:non
     <script src="assets/product-labels.js?v=dd9885ef42a0"></script>
     <script src="assets/images.js?v=712c626777ee"></script>
     <script src="assets/account-store.js?v=90f07500504a"></script>
-    <script src="assets/erp.js?v=d56bf92350af"></script>
-    <script src="assets/demo-seed.js?v=5cc084fa71af"></script>
-    <script src="assets/search.js?v=1ce63bc23f0b"></script>
+    <script src="assets/erp.js?v=a0ba6bcb48e0"></script>
+    <script src="assets/demo-seed.js?v=e6a15e6d6c46"></script>
+    <script src="assets/search.js?v=3fc56aea3704"></script>
     <script>
 // QRCode for JavaScript by Kazuhiko Arase. See qr-code-license.txt.
 window.createLabelQr = (() => {
@@ -3250,8 +3250,7 @@ function fillSizes(line) {
     if (!code) return;
     if (movementType === 'receipt') {
         const product=selectableProducts().find(p=>p.code===code);
-        const known=state.balances?.filter(row=>row.code===code&&row.size&&row.size!==legacySize).map(row=>row.size)||[];
-        for (const size of new Set([...productSizes(product),...known])) selection.add(new Option(size, size));
+        for (const size of productSizes(product)) selection.add(new Option(size, size));
         return;
     }
     const variants = inventory(state).get(code);
@@ -3375,7 +3374,6 @@ document.addEventListener('click', event => {
 });
 
 byId('reset-filters').addEventListener('click', () => {
-    window.AtinoSearch.close();
     byId('search').value = '';
     activeCategory = '';
     renderCatalog();
@@ -3668,14 +3666,14 @@ labelsDialog.addEventListener('close', () => document.body.classList.remove('pri
     </script>
 <script src="assets/vendor/jszip-3.10.1.min.js?v=acc7e41455a8"></script>
 <script src="assets/workbook.js?v=c6acd7ff5430"></script>
-<script src="assets/report-export.js?v=056041d32bc3"></script>
-<script src="assets/documents.js?v=6a89698c1d96"></script>
-    <script src="assets/manager-shell.js?v=535a129a362b"></script>
-<script src="assets/manager-people.js?v=829d6dfa3cad"></script>
-<script src="assets/manager-operations.js?v=f78e6e12b807"></script>
-<script src="assets/integration.js?v=64b2a43a5c35"></script>
-<script src="assets/account-ui.js?v=c5b448aee371"></script>
-<script src="assets/employee-shell.js?v=dd24bb760f46"></script>
+<script src="assets/report-export.js?v=787306c9705c"></script>
+<script src="assets/documents.js?v=9a55257f0654"></script>
+    <script src="assets/manager-shell.js?v=0190267fe664"></script>
+<script src="assets/manager-people.js?v=ab1478fa9159"></script>
+<script src="assets/manager-operations.js?v=c8be07f2ac79"></script>
+<script src="assets/integration.js?v=877d2b921c15"></script>
+<script src="assets/account-ui.js?v=17793675f52d"></script>
+<script src="assets/employee-shell.js?v=99348265e977"></script>
 <script>startWorkspace();</script>
 <script type="text/plain" id="third-party-licenses">qr-code-license.txt
 QRCode for JavaScript

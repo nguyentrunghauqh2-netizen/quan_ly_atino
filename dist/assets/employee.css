@@ -95,6 +95,7 @@ body.employee-active>header,body.employee-active>main,body.employee-active>foote
 #employee-app .ae-results,#employee-app .ae-filter-error{padding:0 24px 18px;font-size:.875rem;color:var(--ae-muted)}
 #employee-app .ae-filter-error{color:#a32d39}
 #employee-app .ae-table-wrap{max-width:100%;overflow:auto}
+#employee-app .ae-history .ae-table{position:relative}
 #employee-app .ae-table{width:100%;border-collapse:collapse;text-align:left;font-size:1rem;line-height:1.6}
 #employee-app .ae-table th{background:#f8f9fc;color:#53647d;font-size:.875rem;font-weight:550;padding:13px 20px;border-block:1px solid var(--ae-border);white-space:nowrap}
 #employee-app .ae-table td{border-bottom:1px solid #e9edf4;padding:16px 20px;color:#455671;vertical-align:middle}
@@ -142,3 +143,9 @@ body.employee-active :is(#receipt-review,#payment-dialog) :is(.primary,.secondar
 
 #employee-app .ae-dialog.ae-dialog-wide{width:min(96vw,1180px)}
 #employee-app .ae-receipt-paper{max-width:340px;margin:0 auto;border:1px dashed #cfd6e4;border-radius:8px;background:#fff}
+
+#employee-app .am-local-date { display:grid; align-items:center; }
+#employee-app .am-local-date > * { grid-area:1 / 1; }
+#employee-app .am-local-date > span { pointer-events:none; z-index:1; padding:7px 12px 0; font-weight:400; }
+#employee-app .am-local-date input { color:transparent; }
+#employee-app .am-local-date input::-webkit-datetime-edit { opacity:0; }

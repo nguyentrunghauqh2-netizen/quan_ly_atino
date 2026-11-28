@@ -2,28 +2,25 @@
 (() => {
 'use strict';
 const ERP=window.AtinoERP;
-const Search=window.AtinoSearch;
-Search.attach(byId('search'),{items:()=>currentUser?catalogProducts().map(product=>({value:product.code,label:product.name,detail:`${product.code} · ${product.category}`,searchText:[product.name,product.code,product.category]})):[],onSelect:item=>showDetail(item.value)});
 byId('search').placeholder='Gõ tên hoặc mã, ví dụ: áo / ao…';
-const addProductLine=addLine;
-addLine=function(){
- const line=addProductLine();
- Search.productPicker(line.querySelector('select[name="item"]'));
- return line;
-};
-const buyerFields='<label class="am-field">Tên khách hàng<input class="field" name="buyerName" maxlength="100" autocomplete="off" placeholder="Nhập tên hoặc tìm khách cũ"></label><label class="am-field">Số điện thoại<input class="field" name="buyerPhone" type="tel" maxlength="25" autocomplete="off" placeholder="Nhập số điện thoại"></label>';
-function bindBuyer(root,rows){
- const name=root.querySelector('[name="buyerName"]'),phone=root.querySelector('[name="buyerPhone"]');
- for(const field of [name,phone]){
-  field.addEventListener('input',()=>{delete name.dataset.customerId});
-  Search.attach(field,{items:()=>rows().map(c=>({value:field===name?c.name:c.phone,label:c.name,detail:[c.id,c.phone].filter(Boolean).join(' · '),searchText:[c.id,c.name,c.phone],customer:c})),onSelect(item){
-   name.value=item.customer.name;phone.value=item.customer.phone||'';name.dataset.customerId=item.customer.id;
-  }});
+const buyerFields='<label class="am-field">Khách hàng đã có hồ sơ<select name="existingCustomer" class="field"><option value="">Khách lẻ hoặc nhập khách mới</option></select></label><label class="am-field">Tên khách hàng<input class="field" name="buyerName" maxlength="100" autocomplete="off" placeholder="Nhập tên khách hàng"></label><label class="am-field">Số điện thoại<input class="field" name="buyerPhone" type="tel" maxlength="25" autocomplete="off" placeholder="Nhập số điện thoại"></label>';
+function bindBuyer(root, rows) {
+ const select = root.querySelector('[name="existingCustomer"]');
+ const selected = select.value;
+ select.replaceChildren(new Option('Khách lẻ hoặc nhập khách mới', ''));
+ for (const customer of rows) {
+  select.add(new Option([customer.name, customer.phone || customer.id].filter(Boolean).join(' · '), customer.id));
  }
+ select.value = rows.some(customer => customer.id === selected) ? selected : '';
+ select.onchange = () => {
+  for (const field of root.querySelectorAll('[name="buyerName"], [name="buyerPhone"]')) field.disabled = Boolean(select.value);
+ };
+ select.onchange();
 }
 function readBuyer(root){
  const name=root.querySelector('[name="buyerName"]');
- if(name.dataset.customerId)return {customerId:name.dataset.customerId};
+ const customerId=root.querySelector('[name="existingCustomer"]').value;
+ if(customerId)return {customerId};
  return {buyerName:name.value.trim(),buyerPhone:root.querySelector('[name="buyerPhone"]').value.trim()};
 }
 const customerPanel=document.createElement('section');
@@ -32,7 +29,7 @@ customerPanel.innerHTML=`<h3 class="font-semibold text-blue-900 mb-3">Khách hà
 byId('sale-total').before(customerPanel);
 const paymentExtra=document.createElement('div');paymentExtra.id='checkout-payment-extra';paymentExtra.className='space-y-3 my-3';byId('payment-total').after(paymentExtra);
 let customers=[],supplierRows=[],loadSequence=0;
-bindBuyer(customerPanel,()=>customers);
+
 const otherChoice='__other__';
 const stockFields=document.createElement('section');stockFields.className='grid sm:grid-cols-2 gap-3';stockFields.hidden=true;
 stockFields.innerHTML='<div class="space-y-2"><label>Nơi nhận hàng<select id="employee-export-destination" class="field"><option value="">Chọn nơi nhận hàng</option><option value="__other__">Khác — ghi rõ</option></select></label><label data-employee-other="destination" hidden>Nơi nhận khác<input id="employee-export-destination-other" class="field" maxlength="200" disabled placeholder="Nhập nơi nhận cụ thể"></label></div>';
@@ -63,7 +60,7 @@ function exportChoiceValue(name,label){
  return detail;
 }
 const baseStart=startMovement;
-startMovement=function(type){Search.close();baseStart(type);customerPanel.querySelectorAll('input').forEach(el=>{el.value='';delete el.dataset.customerId;});byId('checkout-seller-id').replaceChildren();customerPanel.hidden=type!=='sale';stockFields.hidden=type!=='transfer';updateExportChoices();paymentExtra.replaceChildren();loadCustomers();};
+startMovement=function(type){baseStart(type);customerPanel.querySelectorAll('input').forEach(el=>{el.value='';});const buyer=customerPanel.querySelector('[name="existingCustomer"]');buyer.value='';buyer.onchange?.();byId('checkout-seller-id').replaceChildren();customerPanel.hidden=type!=='sale';stockFields.hidden=type!=='transfer';updateExportChoices();paymentExtra.replaceChildren();loadCustomers();};
 async function loadCustomers({throwOnError=false}={}){
  const stamp=++loadSequence;
  try{
@@ -73,7 +70,7 @@ async function loadCustomers({throwOnError=false}={}){
   sellerSelect.innerHTML=(data.sellers||[]).map(person=>'<option value="'+escapeHtml(person.code)+'">'+escapeHtml(person.name)+'</option>').join('');
   sellerSelect.value=(data.sellers||[]).some(person=>person.code===sellerId)?sellerId:currentUser.code;
   byId('checkout-cashier-name').textContent='Thu ngân: '+currentUser.name;
-  customers=data.customers||[];supplierRows=data.suppliers||[];
+  customers=data.customers||[];supplierRows=data.suppliers||[];bindBuyer(customerPanel,customers);
   supplierSelect.innerHTML='<option value="">Chọn nhà cung cấp</option>'+supplierRows.map(s=>`<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)} · ${escapeHtml(s.id)}</option>`).join('');
   supplierSelect.value=supplierRows.find(row=>row.id==='NCC001')?.id||'';
   populateDestinationChoices();
@@ -110,7 +107,7 @@ persistDocument=async function(type,lines,extra={}){
  const result=await ERP.saveStockDocument({...payload,requestId:saveAttempt.key});await refreshStore();saveAttempt=null;return state.movements.find(d=>d.id===result.id);
 };
 const previousSignOut=signOutView;
-signOutView=function(message=''){Search.close();loadSequence++;customers=[];supplierRows=[];customerPanel.hidden=true;previousSignOut(message);};
+signOutView=function(message=''){loadSequence++;customers=[];supplierRows=[];customerPanel.hidden=true;previousSignOut(message);};
 const oldShow=show;
-show=function(id){Search.close();if(currentUser?.role==='manager'&&['home','staff'].includes(id)&&window.AtinoManager){window.AtinoManager.open().then(()=>window.AtinoManager.go(id==='staff'?'employees':'overview')).catch(error=>notify(error.message));return;}oldShow(id);};
+show=function(id){if(currentUser?.role==='manager'&&['home','staff'].includes(id)&&window.AtinoManager){window.AtinoManager.open().then(()=>window.AtinoManager.go(id==='staff'?'employees':'overview')).catch(error=>notify(error.message));return;}oldShow(id);};
 })();
